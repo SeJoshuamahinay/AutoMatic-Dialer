@@ -5,6 +5,9 @@ import '../blocs/break/break_event.dart';
 import '../blocs/break/break_state.dart';
 import '../commons/models/break_session_model.dart';
 import '../commons/reusables/logout_dialog.dart';
+import '../commons/models/auth_models.dart';
+import '../commons/services/shared_prefs_storage_service.dart';
+import 'profile_view.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -14,11 +17,27 @@ class SettingsView extends StatefulWidget {
 }
 
 class _SettingsViewState extends State<SettingsView> {
+  UserSession? userSession;
+
   @override
   void initState() {
     super.initState();
     // Load break history when the view is initialized
     context.read<BreakBloc>().add(const LoadBreakHistory());
+    _loadUserSession();
+  }
+
+  Future<void> _loadUserSession() async {
+    try {
+      final session = await SharedPrefsStorageService.getUserSession();
+      if (mounted) {
+        setState(() {
+          userSession = session;
+        });
+      }
+    } catch (e) {
+      // Handle error silently for now
+    }
   }
 
   @override
@@ -238,26 +257,16 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ),
             const Divider(),
-            ListTile(
-              leading: const Icon(Icons.volume_up),
-              title: const Text('Call Volume'),
-              subtitle: const Text('Adjust call volume settings'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // Navigate to volume settings
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.speed),
-              title: const Text('Auto-Dial Speed'),
-              subtitle: const Text('Set time between calls'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // Navigate to auto-dial settings
-              },
-            ),
-            const Divider(),
+            // ListTile(
+            //   leading: const Icon(Icons.speed),
+            //   title: const Text('Auto-Dial Speed'),
+            //   subtitle: const Text('Set time between calls'),
+            //   trailing: const Icon(Icons.chevron_right),
+            //   onTap: () {
+            //     // Navigate to auto-dial settings
+            //   },
+            // ),
+            // const Divider(),
             ListTile(
               leading: const Icon(Icons.backup),
               title: const Text('Data Backup'),
@@ -292,13 +301,66 @@ class _SettingsViewState extends State<SettingsView> {
               ],
             ),
             const SizedBox(height: 16),
+
+            // User info section
+            if (userSession != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.purple.shade200,
+                      child: Text(
+                        _getInitials(userSession!.fullName),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userSession!.fullName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            userSession!.email,
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             ListTile(
               leading: const Icon(Icons.person),
               title: const Text('Profile'),
               subtitle: const Text('View and edit your profile'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
-                // Navigate to profile
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileView()),
+                );
               },
             ),
             const Divider(),
@@ -399,5 +461,15 @@ class _SettingsViewState extends State<SettingsView> {
     } else {
       return '${seconds}s';
     }
+  }
+
+  String _getInitials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    } else if (parts.isNotEmpty) {
+      return parts[0][0].toUpperCase();
+    }
+    return 'U';
   }
 }

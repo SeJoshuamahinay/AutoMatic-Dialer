@@ -8,6 +8,7 @@ class CallContact extends Equatable {
   final String? coMakerName;
   final String? coMakerPhone;
   final String status;
+  final String? bucket;
   final String? note;
 
   const CallContact({
@@ -19,6 +20,7 @@ class CallContact extends Equatable {
     this.coMakerPhone,
     this.status = 'pending',
     this.note,
+    this.bucket,
   });
 
   CallContact copyWith({
@@ -30,6 +32,7 @@ class CallContact extends Equatable {
     String? coMakerPhone,
     String? status,
     String? note,
+    String? bucket,
   }) {
     return CallContact(
       id: id ?? this.id,
@@ -40,6 +43,7 @@ class CallContact extends Equatable {
       coMakerPhone: coMakerPhone ?? this.coMakerPhone,
       status: status ?? this.status,
       note: note ?? this.note,
+      bucket: bucket ?? this.bucket,
     );
   }
 
@@ -53,6 +57,7 @@ class CallContact extends Equatable {
       'coMakerPhone': coMakerPhone,
       'status': status,
       'note': note,
+      'bucket': bucket,
     };
   }
 
@@ -66,6 +71,7 @@ class CallContact extends Equatable {
       coMakerPhone: json['coMakerPhone'],
       status: json['status'] ?? 'pending',
       note: json['note'],
+      bucket: json['bucket'],
     );
   }
 
@@ -79,5 +85,6 @@ class CallContact extends Equatable {
     coMakerPhone,
     status,
     note,
+    bucket,
   ];
 }

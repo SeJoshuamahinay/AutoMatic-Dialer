@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
-import '../../data/repositories/base_repository.dart';
+import 'package:lenderly_dialer/commons/repositories/base_repository.dart';
 import '../../commons/models/call_contact_model.dart';
 import 'dialer_event.dart';
 import 'dialer_state.dart' as state;

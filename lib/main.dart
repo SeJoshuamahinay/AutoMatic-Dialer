@@ -1,13 +1,13 @@
 import 'package:lenderly_dialer/views/main_navigation_view.dart';
-
-import '/data/repositories/test_repository.dart';
+import 'package:lenderly_dialer/commons/repositories/test_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'blocs/dialer/dialer_bloc.dart';
 import 'blocs/auth/auth_bloc.dart';
 import 'blocs/break/break_bloc.dart';
-import 'commons/services/api_login_service.dart';
 import 'commons/services/environment_config.dart';
+import 'commons/services/shared_prefs_storage_service.dart';
+import 'commons/services/login_service.dart';
 import 'views/auth_wrapper.dart';
 import 'views/login_view.dart';
 
@@ -19,16 +19,12 @@ void main() async {
     // Change to Environment.prod for production builds
     await EnvironmentConfig.initialize(environment: Environment.dev);
 
-    if (EnvironmentConfig.enableLogging) {
-      print(
-        'App: Environment initialized - ${EnvironmentConfig.currentEnvironment}',
-      );
-      print('App: API Base URL - ${EnvironmentConfig.apiBaseUrl}');
-    }
+    // Initialize SharedPreferences for authentication storage
+    await SharedPrefsStorageService.initialize();
+
+    if (EnvironmentConfig.enableLogging) {}
   } catch (e) {
-    if (EnvironmentConfig.enableLogging) {
-      print('App: Failed to initialize environment: $e');
-    }
+    if (EnvironmentConfig.enableLogging) {}
     // Continue with app initialization even if env fails
   }
 
@@ -43,15 +39,14 @@ class MyApp extends StatelessWidget {
     // Initialize dependencies
     // Initialize TestRepository for testing purposes
     // This can be used to mock API calls or database interactions in tests
-    final testRepository = TestRepository();
-
     // Initialize LoginService
+    final baseRepository = TestRepository();
     final loginService = LoginService();
 
     return MultiBlocProvider(
       providers: [
         BlocProvider<DialerBloc>(
-          create: (context) => DialerBloc(repository: testRepository),
+          create: (context) => DialerBloc(repository: baseRepository),
         ),
         BlocProvider<AuthBloc>(
           create: (context) => AuthBloc(loginService: loginService),

@@ -37,7 +37,7 @@ class LoginResponse {
           ? UserData.fromJson(json['data']['user'])
           : null,
       token: json['data']?['token'],
-      timestamp: json['data']?['timestamp'],
+      timestamp: DateTime.now().toIso8601String(),
     );
   }
 }
@@ -48,6 +48,7 @@ class UserData {
   final String firstName;
   final String lastName;
   final String loginType;
+  final int? departmentId;
   final String? createdAt;
   final String? updatedAt;
 
@@ -57,6 +58,7 @@ class UserData {
     required this.firstName,
     required this.lastName,
     required this.loginType,
+    this.departmentId,
     this.createdAt,
     this.updatedAt,
   });
@@ -68,6 +70,7 @@ class UserData {
       firstName: json['first_name'] ?? '',
       lastName: json['last_name'] ?? '',
       loginType: json['login_type'] ?? 'standard',
+      departmentId: json['department_id'],
       createdAt: json['created_at'],
       updatedAt: json['updated_at'],
     );
@@ -80,6 +83,7 @@ class UserData {
       'first_name': firstName,
       'last_name': lastName,
       'login_type': loginType,
+      'department_id': departmentId,
       'created_at': createdAt,
       'updated_at': updatedAt,
     };

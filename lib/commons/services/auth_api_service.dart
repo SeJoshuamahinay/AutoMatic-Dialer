@@ -1,376 +1,317 @@
-import 'package:dio/dio.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'package:lenderly_dialer/commons/models/auth_models.dart';
 import 'package:lenderly_dialer/commons/services/environment_config.dart';
+import 'package:lenderly_dialer/commons/services/secure_storage_service.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 
 class AuthApiService {
-  static final AuthApiService _instance = AuthApiService._internal();
-  factory AuthApiService() => _instance;
-  AuthApiService._internal();
+  static const int timeoutSeconds = 30;
+  final SecureStorageService _secureStorage = SecureStorageService();
 
-  late Dio _dio;
-
-  Future<void> initialize() async {
-    await SharedPrefsStorageService.initialize();
-    _dio = Dio();
-
-    // Setup default options
-    _dio.options = BaseOptions(
-      baseUrl: EnvironmentConfig.apiBaseUrl,
-      connectTimeout: Duration(milliseconds: EnvironmentConfig.apiTimeout),
-      receiveTimeout: Duration(milliseconds: EnvironmentConfig.apiTimeout),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    );
-
-    // Add request interceptor to include Bearer token
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) async {
-          // Get current user session to add Authorization header
-          final userSession = await SharedPrefsStorageService.getUserSession();
-          if (userSession?.token != null) {
-            options.headers['Authorization'] = 'Bearer ${userSession!.token}';
-          }
-          handler.next(options);
-        },
-      ),
-    );
-
-    // Add logging interceptor in debug mode
-    if (EnvironmentConfig.enableLogging) {
-      _dio.interceptors.add(
-        LogInterceptor(
-          requestBody: true,
-          responseBody: true,
-          requestHeader: true,
-          responseHeader: false,
-          error: true,
-        ),
-      );
-    }
-  }
-
-  /// Login with email and password
+  /// Login with email/password to get Bearer token
   Future<LoginResponse> login(LoginRequest request) async {
-    if (EnvironmentConfig.enableLogging) {
-      print('AUTH API: Login request to ${EnvironmentConfig.authEndpoint}');
-    }
-
     try {
-      final response = await _dio.post(
-        EnvironmentConfig.authEndpoint,
-        data: request.toJson(),
-      );
+      // Fallback URL construction if environment is not loaded properly
+      String baseUrl = EnvironmentConfig.apiBaseUrl;
+      String endpoint = EnvironmentConfig.authEndpoint;
+      final url = Uri.parse('$baseUrl$endpoint');
 
-      if (EnvironmentConfig.enableLogging) {
-        print(
-          'AUTH API: Login response: ${response.statusCode} - ${response.data}',
-        );
-      }
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(const Duration(seconds: timeoutSeconds));
 
-      return LoginResponse.fromJson(response.data);
-    } on DioException catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Login error: ${e.message}');
-      }
+      final responseData = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final loginResponse = LoginResponse.fromJson(responseData);
 
-      if (e.response != null) {
-        // Handle validation errors (422) and other HTTP errors
-        final responseData = e.response!.data;
-        if (responseData is Map<String, dynamic>) {
-          String errorMessage = responseData['message'] ?? 'Login failed';
+        // Save user session if login is successful
+        if (loginResponse.success &&
+            loginResponse.userData != null &&
+            loginResponse.token != null) {
+          print('Login successful, saving user session...');
 
-          // Handle validation errors
-          if (e.response!.statusCode == 422 && responseData['errors'] != null) {
-            final errors = responseData['errors'] as Map<String, dynamic>;
-            final errorMessages = <String>[];
-            errors.forEach((key, value) {
-              if (value is List) {
-                errorMessages.addAll(value.cast<String>());
-              }
-            });
-            errorMessage = errorMessages.join(', ');
-          }
+          // Create user session
+          final userSession = UserSession.fromUserData(
+            loginResponse.userData!,
+            token: loginResponse.token,
+          );
 
-          return LoginResponse(success: false, message: errorMessage);
+          // Save to SharedPreferences
+          await SharedPrefsStorageService.saveUserSession(userSession);
+
+          print('User session saved successfully');
+          print('User: ${userSession.fullName} (${userSession.email})');
+          print('Token: ${userSession.token?.substring(0, 20)}...');
         }
-      }
 
+        return loginResponse;
+      } else if (response.statusCode == 422) {
+        // Validation errors
+        final errors = responseData['errors'] as Map<String, dynamic>?;
+        String errorMessage = 'Validation failed';
+
+        if (errors != null) {
+          final allErrors = <String>[];
+          errors.forEach((field, messages) {
+            if (messages is List) {
+              allErrors.addAll(messages.cast<String>());
+            }
+          });
+          errorMessage = allErrors.join(', ');
+        } else if (responseData['message'] != null) {
+          errorMessage = responseData['message'];
+        }
+
+        return LoginResponse(success: false, message: errorMessage);
+      } else if (response.statusCode == 401) {
+        return LoginResponse(
+          success: false,
+          message: responseData['message'] ?? 'Invalid credentials',
+        );
+      } else {
+        return LoginResponse(
+          success: false,
+          message: responseData['message'] ?? 'Login failed',
+        );
+      }
+    } on SocketException {
       return LoginResponse(
         success: false,
-        message: 'Network error: ${e.message}',
+        message:
+            'Cannot connect to server. Is the server running at ${EnvironmentConfig.apiBaseUrl}?',
+      );
+    } on http.ClientException {
+      return LoginResponse(
+        success: false,
+        message: 'Network error: Connection timeout or client error',
+      );
+    } on FormatException {
+      return LoginResponse(
+        success: false,
+        message: 'Invalid server response format',
       );
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Unexpected login error: $e');
-      }
       return LoginResponse(
         success: false,
-        message: 'Unexpected error: ${e.toString()}',
+        message: 'Login error: ${e.toString()}',
       );
     }
   }
 
-  /// Get current user information
-  Future<UserInfoResponse> getUserInfo() async {
-    if (EnvironmentConfig.enableLogging) {
-      print(
-        'AUTH API: Get user info request to ${EnvironmentConfig.userInfoEndpoint}',
-      );
-    }
-
+  /// Get user info using Bearer token
+  Future<Map<String, dynamic>> getUserInfo() async {
     try {
-      final response = await _dio.get(EnvironmentConfig.userInfoEndpoint);
-
-      if (EnvironmentConfig.enableLogging) {
-        print(
-          'AUTH API: Get user info response: ${response.statusCode} - ${response.data}',
-        );
+      final token = await _secureStorage.getAuthToken();
+      if (token == null) {
+        throw Exception('No auth token found');
       }
 
-      return UserInfoResponse.fromJson(response.data);
-    } on DioException catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Get user info error: ${e.message}');
-      }
-
-      if (e.response != null && e.response!.data is Map<String, dynamic>) {
-        final responseData = e.response!.data as Map<String, dynamic>;
-        return UserInfoResponse(
-          success: false,
-          message: responseData['message'] ?? 'Failed to get user info',
-        );
-      }
-
-      return UserInfoResponse(
-        success: false,
-        message: 'Network error: ${e.message}',
+      final url = Uri.parse(
+        '${EnvironmentConfig.apiBaseUrl}${EnvironmentConfig.userInfoEndpoint}',
       );
+
+      final response = await http
+          .get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': responseData};
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': 'Token expired or invalid',
+          'tokenExpired': true,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Failed to get user info',
+        };
+      }
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Unexpected get user info error: $e');
-      }
-      return UserInfoResponse(
-        success: false,
-        message: 'Unexpected error: ${e.toString()}',
-      );
+      return {
+        'success': false,
+        'message': 'Error getting user info: ${e.toString()}',
+      };
     }
   }
 
-  /// Logout user
-  Future<LogoutResponse> logout() async {
-    if (EnvironmentConfig.enableLogging) {
-      print('AUTH API: Logout request to ${EnvironmentConfig.logoutEndpoint}');
-    }
-
+  /// Logout from current device
+  Future<Map<String, dynamic>> logout() async {
     try {
-      final response = await _dio.post(EnvironmentConfig.logoutEndpoint);
-
-      if (EnvironmentConfig.enableLogging) {
-        print(
-          'AUTH API: Logout response: ${response.statusCode} - ${response.data}',
-        );
+      final token = await _secureStorage.getAuthToken();
+      if (token == null) {
+        return {'success': true, 'message': 'Already logged out'};
       }
 
-      // No need to clear cookies for token-based auth
-      return LogoutResponse.fromJson(response.data);
-    } on DioException catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Logout error: ${e.message}');
+      final url = Uri.parse('${EnvironmentConfig.apiBaseUrl}/logout');
+
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 401) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Logged out successfully',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Logout failed',
+        };
       }
-
-      // No need to clear cookies for token-based auth
-      // Token invalidation is handled by the server
-
-      if (e.response != null && e.response!.data is Map<String, dynamic>) {
-        final responseData = e.response!.data as Map<String, dynamic>;
-        return LogoutResponse(
-          success: false,
-          message: responseData['message'] ?? 'Logout failed',
-        );
-      }
-
-      return LogoutResponse(
-        success: false,
-        message: 'Network error: ${e.message}',
-      );
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Unexpected logout error: $e');
-      }
-
-      // No need to clear cookies for token-based auth
-      // Token cleanup is handled by the server
-
-      return LogoutResponse(
-        success: false,
-        message: 'Unexpected error: ${e.toString()}',
-      );
+      // Even if logout fails on server, we should clear local tokens
+      return {'success': true, 'message': 'Logged out locally'};
     }
   }
 
   /// Logout from all devices
-  Future<LogoutResponse> logoutAll() async {
-    if (EnvironmentConfig.enableLogging) {
-      print(
-        'AUTH API: Logout all request to ${EnvironmentConfig.logoutAllEndpoint}',
-      );
-    }
-
+  Future<Map<String, dynamic>> logoutAll() async {
     try {
-      final response = await _dio.post(EnvironmentConfig.logoutAllEndpoint);
-
-      if (EnvironmentConfig.enableLogging) {
-        print(
-          'AUTH API: Logout all response: ${response.statusCode} - ${response.data}',
-        );
+      final token = await _secureStorage.getAuthToken();
+      if (token == null) {
+        return {'success': true, 'message': 'Already logged out'};
       }
 
-      return LogoutResponse.fromJson(response.data);
-    } on DioException catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Logout all error: ${e.message}');
-      }
+      final url = Uri.parse('${EnvironmentConfig.apiBaseUrl}/logout-all');
 
-      if (e.response != null && e.response!.data is Map<String, dynamic>) {
-        final responseData = e.response!.data as Map<String, dynamic>;
-        return LogoutResponse(
-          success: false,
-          message: responseData['message'] ?? 'Logout all failed',
-        );
-      }
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: timeoutSeconds));
 
-      return LogoutResponse(
-        success: false,
-        message: 'Network error: ${e.message}',
-      );
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 401) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Logged out from all devices',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Logout all failed',
+        };
+      }
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Unexpected logout all error: $e');
-      }
-
-      return LogoutResponse(
-        success: false,
-        message: 'Unexpected error: ${e.toString()}',
-      );
+      // Even if logout fails on server, we should clear local tokens
+      return {'success': true, 'message': 'Logged out locally'};
     }
   }
 
-  /// Refresh the current token
-  Future<RefreshTokenResponse> refreshToken({String? deviceName}) async {
-    if (EnvironmentConfig.enableLogging) {
-      print(
-        'AUTH API: Refresh token request to ${EnvironmentConfig.refreshEndpoint}',
-      );
-    }
-
+  /// Verify if current token is valid
+  Future<Map<String, dynamic>> verifyToken() async {
     try {
-      final requestData = <String, dynamic>{};
-      if (deviceName != null) {
-        requestData['device_name'] = deviceName;
+      final token = await _secureStorage.getAuthToken();
+      if (token == null) {
+        return {'success': false, 'message': 'No token found'};
       }
 
-      final response = await _dio.post(
-        EnvironmentConfig.refreshEndpoint,
-        data: requestData.isNotEmpty ? requestData : null,
-      );
+      final url = Uri.parse('${EnvironmentConfig.apiBaseUrl}/verify');
 
-      if (EnvironmentConfig.enableLogging) {
-        print(
-          'AUTH API: Refresh token response: ${response.statusCode} - ${response.data}',
-        );
+      final response = await http
+          .get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: timeoutSeconds));
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': 'Token is valid',
+          'data': responseData,
+        };
+      } else if (response.statusCode == 401) {
+        return {
+          'success': false,
+          'message': 'Token expired or invalid',
+          'tokenExpired': true,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': responseData['message'] ?? 'Token verification failed',
+        };
       }
-
-      return RefreshTokenResponse.fromJson(response.data);
-    } on DioException catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Refresh token error: ${e.message}');
-      }
-
-      if (e.response != null && e.response!.data is Map<String, dynamic>) {
-        final responseData = e.response!.data as Map<String, dynamic>;
-        return RefreshTokenResponse(
-          success: false,
-          message: responseData['message'] ?? 'Token refresh failed',
-        );
-      }
-
-      return RefreshTokenResponse(
-        success: false,
-        message: 'Network error: ${e.message}',
-      );
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Unexpected refresh token error: $e');
-      }
-
-      return RefreshTokenResponse(
-        success: false,
-        message: 'Unexpected error: ${e.toString()}',
-      );
+      return {
+        'success': false,
+        'message': 'Error verifying token: ${e.toString()}',
+      };
     }
   }
 
-  /// Verify current session
-  Future<VerifyResponse> verifySession() async {
-    if (EnvironmentConfig.enableLogging) {
-      print(
-        'AUTH API: Verify session request to ${EnvironmentConfig.verifyEndpoint}',
-      );
-    }
-
+  /// Test server connectivity
+  Future<Map<String, dynamic>> testConnection() async {
     try {
-      final response = await _dio.get(EnvironmentConfig.verifyEndpoint);
+      final url = Uri.parse('${EnvironmentConfig.apiBaseUrl}/api/health');
 
-      if (EnvironmentConfig.enableLogging) {
-        print(
-          'AUTH API: Verify session response: ${response.statusCode} - ${response.data}',
-        );
-      }
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
 
-      return VerifyResponse.fromJson(response.data);
-    } on DioException catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Verify session error: ${e.message}');
-      }
-
-      if (e.response != null && e.response!.data is Map<String, dynamic>) {
-        final responseData = e.response!.data as Map<String, dynamic>;
-        return VerifyResponse(
-          success: false,
-          message: responseData['message'] ?? 'Session verification failed',
-          authenticated: false,
-        );
-      }
-
-      return VerifyResponse(
-        success: false,
-        message: 'Network error: ${e.message}',
-        authenticated: false,
-      );
+      return {
+        'success': response.statusCode == 200,
+        'message': response.statusCode == 200
+            ? 'Server is reachable'
+            : 'Server returned ${response.statusCode}',
+        'statusCode': response.statusCode,
+      };
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('AUTH API: Unexpected verify session error: $e');
-      }
-      return VerifyResponse(
-        success: false,
-        message: 'Unexpected error: ${e.toString()}',
-        authenticated: false,
-      );
+      return {
+        'success': false,
+        'message': 'Cannot connect to server: ${e.toString()}',
+      };
     }
   }
 
-  /// Clear session data (for complete logout/reset)
-  Future<void> clearSession() async {
-    // For token-based auth, the token is stored in secure storage
-    // and managed by SecureStorageService, not cookies
-    // This method exists for API compatibility
-  }
-
-  void dispose() {
-    _dio.close();
+  /// Create login request with device name
+  LoginRequest createLoginRequest(
+    String email,
+    String password, {
+    String? deviceName,
+  }) {
+    return LoginRequest(
+      email: email,
+      password: password,
+      deviceName: deviceName ?? EnvironmentConfig.defaultDeviceName,
+    );
   }
 }

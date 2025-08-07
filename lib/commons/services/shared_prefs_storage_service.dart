@@ -37,13 +37,9 @@ class SharedPrefsStorageService {
         await prefs.setString(_authTokenKey, userSession.token!);
       }
 
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: User session saved successfully');
-      }
+      if (EnvironmentConfig.enableLogging) {}
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: Failed to save user session: $e');
-      }
+      if (EnvironmentConfig.enableLogging) {}
       throw Exception('Failed to save user session: $e');
     }
   }
@@ -55,24 +51,18 @@ class SharedPrefsStorageService {
       final jsonString = prefs.getString(_userSessionKey);
 
       if (jsonString == null) {
-        if (EnvironmentConfig.enableLogging) {
-          print('SharedPrefsStorage: No user session found');
-        }
+        if (EnvironmentConfig.enableLogging) {}
         return null;
       }
 
       final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
       final userSession = UserSession.fromJson(jsonData);
 
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: User session retrieved successfully');
-      }
+      if (EnvironmentConfig.enableLogging) {}
 
       return userSession;
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: Failed to get user session: $e');
-      }
+      if (EnvironmentConfig.enableLogging) {}
       return null;
     }
   }
@@ -83,9 +73,7 @@ class SharedPrefsStorageService {
       final prefs = await _instance;
       return prefs.getString(_authTokenKey);
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: Failed to get auth token: $e');
-      }
+      if (EnvironmentConfig.enableLogging) {}
       return null;
     }
   }
@@ -109,17 +97,13 @@ class SharedPrefsStorageService {
         await prefs.setString(_userCredentialsKey, jsonEncode(credentials));
         await prefs.setBool(_rememberMeKey, true);
 
-        if (EnvironmentConfig.enableLogging) {
-          print('SharedPrefsStorage: User credentials saved for remember me');
-        }
+        if (EnvironmentConfig.enableLogging) {}
       } else {
         // Clear saved credentials if remember me is disabled
         await clearUserCredentials();
       }
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: Failed to save user credentials: $e');
-      }
+      if (EnvironmentConfig.enableLogging) {}
     }
   }
 
@@ -141,9 +125,7 @@ class SharedPrefsStorageService {
         'password': credentials['password'] as String,
       };
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: Failed to get user credentials: $e');
-      }
+      if (EnvironmentConfig.enableLogging) {}
       return null;
     }
   }
@@ -165,13 +147,9 @@ class SharedPrefsStorageService {
       await prefs.remove(_userSessionKey);
       await prefs.remove(_authTokenKey);
 
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: User session cleared');
-      }
+      if (EnvironmentConfig.enableLogging) {}
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: Failed to clear user session: $e');
-      }
+      if (EnvironmentConfig.enableLogging) {}
     }
   }
 
@@ -182,13 +160,9 @@ class SharedPrefsStorageService {
       await prefs.remove(_userCredentialsKey);
       await prefs.remove(_rememberMeKey);
 
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: User credentials cleared');
-      }
+      if (EnvironmentConfig.enableLogging) {}
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: Failed to clear user credentials: $e');
-      }
+      if (EnvironmentConfig.enableLogging) {}
     }
   }
 
@@ -198,13 +172,9 @@ class SharedPrefsStorageService {
       await clearUserSession();
       await clearUserCredentials();
 
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: All authentication data cleared');
-      }
+      if (EnvironmentConfig.enableLogging) {}
     } catch (e) {
-      if (EnvironmentConfig.enableLogging) {
-        print('SharedPrefsStorage: Failed to clear all data: $e');
-      }
+      if (EnvironmentConfig.enableLogging) {}
     }
   }
 
@@ -246,26 +216,17 @@ class SharedPrefsStorageService {
       final prefs = await _instance;
       final keys = prefs.getKeys();
 
-      print('SharedPrefsStorage Debug:');
       for (final key in keys) {
         if (key.contains('user') ||
             key.contains('auth') ||
             key.contains('remember')) {
           final value = prefs.get(key);
           if (key.contains('password')) {
-            print('  $key: [HIDDEN]');
           } else if (key.contains('token')) {
             final tokenStr = value.toString();
-            print(
-              '  $key: ${tokenStr.length > 20 ? '${tokenStr.substring(0, 20)}...' : tokenStr}',
-            );
-          } else {
-            print('  $key: $value');
-          }
+          } else {}
         }
       }
-    } catch (e) {
-      print('SharedPrefsStorage Debug failed: $e');
-    }
+    } catch (e) {}
   }
 }

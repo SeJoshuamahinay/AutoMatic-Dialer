@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_bloc.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_event.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_state.dart';
+import 'package:lenderly_dialer/commons/reusables/toast.dart';
 import 'package:lenderly_dialer/views/login_view.dart';
 import 'package:lenderly_dialer/views/main_navigation_view.dart';
 
@@ -11,21 +12,28 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        if (state is AuthInitial) {
-          // Check authentication status on app start
-          context.read<AuthBloc>().add(AuthCheckRequested());
-          return const _LoadingScreen();
-        } else if (state is AuthLoading) {
-          return const _LoadingScreen();
-        } else if (state is AuthAuthenticated) {
-          return const MainNavigationView();
-        } else {
-          // AuthUnauthenticated, AuthError, or any other state
-          return const LoginView();
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthError) {
+          toast(context, state.message, ShowToast.error);
         }
       },
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          if (state is AuthInitial) {
+            // Check authentication status on app start
+            context.read<AuthBloc>().add(AuthCheckRequested());
+            return const _LoadingScreen();
+          } else if (state is AuthLoading) {
+            return const _LoadingScreen();
+          } else if (state is AuthAuthenticated) {
+            return const MainNavigationView();
+          } else {
+            // AuthUnauthenticated, AuthError, or any other state
+            return const LoginView();
+          }
+        },
+      ),
     );
   }
 }

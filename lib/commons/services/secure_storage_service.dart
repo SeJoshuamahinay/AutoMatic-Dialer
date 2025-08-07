@@ -65,8 +65,17 @@ class SecureStorageService {
         await _storage.deleteAll();
       } catch (e) {
         // Log error but don't throw - clearing is a cleanup operation
-        print('Warning: Failed to clear secure storage: $e');
       }
+    }
+  }
+
+  /// Get auth token from stored user session
+  Future<String?> getAuthToken() async {
+    try {
+      final userSession = await getUserSession();
+      return userSession?.token;
+    } catch (e) {
+      return null;
     }
   }
 

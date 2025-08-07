@@ -17,6 +17,7 @@ class _LoginViewState extends State<LoginView> {
   final _passwordController = TextEditingController();
   final _tokenController = TextEditingController();
   bool _useTokenLogin = false;
+  bool _rememberMe = false;
 
   @override
   void dispose() {
@@ -28,18 +29,18 @@ class _LoginViewState extends State<LoginView> {
 
   void _handleLogin() {
     if (_useTokenLogin) {
-      final token = _tokenController.text.trim();
+      final token = _tokenController.text;
       if (token.isEmpty) {
         _showError('Please enter a token');
         return;
       }
 
       context.read<AuthBloc>().add(
-        AuthLoginRequested(identifier: token, isTokenLogin: true),
+        AuthLoginRequested(identifier: token, password: ''),
       );
     } else {
-      final username = _usernameController.text.trim();
-      final password = _passwordController.text.trim();
+      final username = _usernameController.text;
+      final password = _passwordController.text;
 
       if (username.isEmpty || password.isEmpty) {
         _showError('Please enter both username and password');
@@ -50,7 +51,7 @@ class _LoginViewState extends State<LoginView> {
         AuthLoginRequested(
           identifier: username,
           password: password,
-          isTokenLogin: false,
+          rememberMe: _rememberMe,
         ),
       );
     }
@@ -68,6 +69,11 @@ class _LoginViewState extends State<LoginView> {
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
+            toast(
+              context,
+              'Login successful! Welcome ${state.username}',
+              ShowToast.success,
+            );
             Navigator.of(context).pushReplacementNamed('/dashboard');
           } else if (state is AuthError) {
             _showError(state.message);
@@ -238,28 +244,30 @@ class _LoginViewState extends State<LoginView> {
 
                               const SizedBox(height: 8),
 
-                              // Demo hint
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: Colors.blue.shade200,
+                              // Remember Me checkbox (only for username/password login)
+                              if (!_useTokenLogin)
+                                CheckboxListTile(
+                                  value: _rememberMe,
+                                  onChanged: isLoading
+                                      ? null
+                                      : (value) {
+                                          setState(() {
+                                            _rememberMe = value ?? false;
+                                          });
+                                        },
+                                  title: const Text(
+                                    'Remember Me',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black,
+                                    ),
                                   ),
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  contentPadding: EdgeInsets.zero,
+                                  activeColor: Colors.white,
+                                  checkColor: Colors.blue,
                                 ),
-                                child: Text(
-                                  _useTokenLogin
-                                      ? 'Demo: Enter any token with at least 4 characters'
-                                      : 'Demo Credentials:\n• ITdepartment / password\n• symphony / symphony123\n• Any username (3+ chars) / password (4+ chars)',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.blue,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
                               const SizedBox(height: 24),
                               ElevatedButton(
                                 onPressed: isLoading ? null : _handleLogin,

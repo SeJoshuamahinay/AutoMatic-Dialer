@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_event.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_state.dart';
-import 'package:lenderly_dialer/commons/services/api_login_service.dart';
+import 'package:lenderly_dialer/commons/services/login_service.dart';
 
 /// AuthBloc handles authentication state management for the app
 /// Integrates with Sanctum token-based authentication
@@ -11,8 +11,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   StreamSubscription<bool>? _authStatusSubscription;
 
   AuthBloc({required LoginService loginService})
-      : _loginService = loginService,
-        super(AuthInitial()) {
+    : _loginService = loginService,
+      super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthLoginRequested>(_onAuthLoginRequested);
     on<AuthAutoLoginRequested>(_onAutoLoginRequested);
@@ -20,24 +20,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthStatusChanged>(_onAuthStatusChanged);
 
     // Listen to authentication status changes from LoginService
-    _authStatusSubscription = _loginService.authStatusStream.listen(
-      (isAuthenticated) async {
-        if (isAuthenticated) {
-          final userSession = await _loginService.getCurrentUserSession();
-          if (userSession != null) {
-            add(
-              AuthStatusChanged(
-                isAuthenticated: true,
-                userToken: userSession.token,
-                username: userSession.fullName,
-              ),
-            );
-          }
-        } else {
-          add(const AuthStatusChanged(isAuthenticated: false));
+    _authStatusSubscription = _loginService.authStatusStream.listen((
+      isAuthenticated,
+    ) async {
+      if (isAuthenticated) {
+        final userSession = await _loginService.getCurrentUserSession();
+        if (userSession != null) {
+          add(
+            AuthStatusChanged(
+              isAuthenticated: true,
+              userToken: userSession.token,
+              username: userSession.fullName,
+            ),
+          );
         }
-      },
-    );
+      } else {
+        add(const AuthStatusChanged(isAuthenticated: false));
+      }
+    });
   }
 
   /// Handle authentication check requests
@@ -61,12 +61,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               loginType: userSession.loginType,
             ),
           );
-        } else {
-          emit(AuthUnauthenticated());
+          return;
         }
-      } else {
-        emit(AuthUnauthenticated());
       }
+
+      // If not authenticated, try auto-login with Remember Me
+      final autoLoginResult = await _loginService.autoLogin();
+      if (autoLoginResult.success) {
+        final userSession = await _loginService.getCurrentUserSession();
+        if (userSession != null) {
+          emit(
+            AuthAuthenticated(
+              userToken: userSession.token,
+              username: userSession.fullName,
+              email: userSession.email,
+              loginTime: userSession.loginTime,
+              loginType: userSession.loginType,
+            ),
+          );
+          return;
+        }
+      }
+
+      // No authentication available
+      emit(AuthUnauthenticated());
     } catch (e) {
       emit(AuthError('Authentication check failed: ${e.toString()}'));
     }
@@ -80,6 +98,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
 
     try {
+      // Validate input before making API call
+      if (event.identifier.isEmpty) {
+        emit(const AuthError('Please enter your email or username'));
+        return;
+      }
+
+      if (event.password.isEmpty) {
+        emit(const AuthError('Please enter your password'));
+        return;
+      }
+
+      // Attempt login
       final result = await _loginService.login(
         identifier: event.identifier,
         password: event.password,
@@ -87,7 +117,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
 
       if (result.success) {
+        // Get fresh user session after successful login
         final userSession = await _loginService.getCurrentUserSession();
+
         if (userSession != null) {
           emit(
             AuthAuthenticated(
@@ -99,22 +131,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             ),
           );
         } else {
-          // Fallback if userSession is null but login was successful
+          // This shouldn't happen if login was successful, but handle gracefully
           emit(
-            AuthAuthenticated(
-              userToken: result.token,
-              username: result.username ?? 'User',
-              email: event.identifier,
-              loginTime: DateTime.now(),
-              loginType: 'sanctum',
+            const AuthError(
+              'Login succeeded but failed to retrieve user session',
             ),
           );
         }
       } else {
+        // Backend returned specific error message
         emit(AuthError(result.message));
       }
     } catch (e) {
-      emit(AuthError('Login failed: ${e.toString()}'));
+      // Handle unexpected errors with user-friendly message
+      emit(
+        const AuthError(
+          'Login failed. Please check your connection and try again.',
+        ),
+      );
     }
   }
 
@@ -130,6 +164,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       if (result.success) {
         final userSession = await _loginService.getCurrentUserSession();
+
         if (userSession != null) {
           emit(
             AuthAuthenticated(
@@ -140,11 +175,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               loginType: userSession.loginType,
             ),
           );
+        } else {
+          // Auto-login succeeded but no user session - this shouldn't happen
+          emit(AuthUnauthenticated());
         }
       } else {
+        // Auto-login failed (expired credentials, etc.) - silently redirect to login
         emit(AuthUnauthenticated());
       }
     } catch (e) {
+      // Auto-login errors should not show to user - just redirect to login
       emit(AuthUnauthenticated());
     }
   }
@@ -160,22 +200,45 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       await _loginService.logout();
       emit(AuthUnauthenticated());
     } catch (e) {
-      emit(AuthError('Logout failed: ${e.toString()}'));
+      // Even if logout fails on backend, clear local state
+      // This ensures user can't get stuck in authenticated state
+      emit(AuthUnauthenticated());
     }
   }
 
   /// Handle authentication status changes from LoginService
-  void _onAuthStatusChanged(AuthStatusChanged event, Emitter<AuthState> emit) {
+  void _onAuthStatusChanged(
+    AuthStatusChanged event,
+    Emitter<AuthState> emit,
+  ) async {
     if (event.isAuthenticated && event.username != null) {
-      emit(
-        AuthAuthenticated(
-          userToken: event.userToken,
-          username: event.username!,
-          email: event.userToken ?? 'unknown@example.com', // Fallback email
-          loginTime: DateTime.now(),
-          loginType: 'sanctum',
-        ),
-      );
+      // Try to get full user session for complete information
+      final userSession = await _loginService.getCurrentUserSession();
+
+      if (userSession != null) {
+        emit(
+          AuthAuthenticated(
+            userToken: userSession.token,
+            username: userSession.fullName,
+            email: userSession.email,
+            loginTime: userSession.loginTime,
+            loginType: userSession.loginType,
+          ),
+        );
+      } else {
+        // Fallback if user session is not available
+        emit(
+          AuthAuthenticated(
+            userToken: event.userToken,
+            username: event.username!,
+            email: event.username!.contains('@')
+                ? event.username!
+                : 'unknown@example.com',
+            loginTime: DateTime.now(),
+            loginType: 'sanctum',
+          ),
+        );
+      }
     } else {
       emit(AuthUnauthenticated());
     }
