@@ -1,4 +1,5 @@
 import '../models/call_contact_model.dart';
+import '../models/loan_models.dart';
 import '../../blocs/dialer/dialer_bloc.dart';
 import '../../blocs/dialer/dialer_event.dart';
 import '../../blocs/dialer/dialer_state.dart' as state;
@@ -41,6 +42,32 @@ class DialerPresenter {
   // Mark call as ended
   void markCallEnded(int contactId) {
     _dialerBloc.add(CallEnded(contactId: contactId));
+  }
+
+  // Start auto-dialing co-makers for a specific bucket
+  void startCoMakerDialingForBucket(
+    BucketType bucketType,
+    AssignmentData assignmentData,
+  ) {
+    _dialerBloc.add(
+      StartCoMakerDialingForBucket(
+        bucketType: bucketType,
+        assignmentData: assignmentData,
+      ),
+    );
+  }
+
+  // Start auto-dialing all contacts for a specific bucket
+  void startAllContactsDialingForBucket(
+    BucketType bucketType,
+    AssignmentData assignmentData,
+  ) {
+    _dialerBloc.add(
+      StartAllContactsDialingForBucket(
+        bucketType: bucketType,
+        assignmentData: assignmentData,
+      ),
+    );
   }
 
   // Get the current state stream

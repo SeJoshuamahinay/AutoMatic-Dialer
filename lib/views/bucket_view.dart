@@ -347,7 +347,7 @@ class _BucketViewState extends State<BucketView> {
                   if (loan.outstandingBalance != null)
                     Expanded(
                       child: Text(
-                        'Balance: \$${loan.outstandingBalance!.toStringAsFixed(2)}',
+                        'Balance: PHP ${loan.outstandingBalance!.toStringAsFixed(2)}',
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),

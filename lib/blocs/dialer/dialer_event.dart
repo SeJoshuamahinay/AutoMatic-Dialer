@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../commons/models/loan_models.dart';
 
 abstract class DialerEvent extends Equatable {
   const DialerEvent();
@@ -44,4 +45,31 @@ class CallEnded extends DialerEvent {
 
 class RefreshNumbers extends DialerEvent {
   const RefreshNumbers();
+}
+
+// New events for bucket-specific co-maker dialing
+class StartCoMakerDialingForBucket extends DialerEvent {
+  final BucketType bucketType;
+  final AssignmentData assignmentData;
+
+  const StartCoMakerDialingForBucket({
+    required this.bucketType,
+    required this.assignmentData,
+  });
+
+  @override
+  List<Object?> get props => [bucketType, assignmentData];
+}
+
+class StartAllContactsDialingForBucket extends DialerEvent {
+  final BucketType bucketType;
+  final AssignmentData assignmentData;
+
+  const StartAllContactsDialingForBucket({
+    required this.bucketType,
+    required this.assignmentData,
+  });
+
+  @override
+  List<Object?> get props => [bucketType, assignmentData];
 }

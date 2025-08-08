@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:lenderly_dialer/commons/repositories/base_repository.dart';
 import '../../commons/models/call_contact_model.dart';
+import '../../commons/models/loan_models.dart';
+import '../../commons/services/accounts_bucket_service.dart';
 import 'dialer_event.dart';
 import 'dialer_state.dart' as state;
 
@@ -21,6 +23,8 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
     on<SaveNote>(_onSaveNote);
     on<CallEnded>(_onCallEnded);
     on<RefreshNumbers>(_onRefreshNumbers);
+    on<StartCoMakerDialingForBucket>(_onStartCoMakerDialingForBucket);
+    on<StartAllContactsDialingForBucket>(_onStartAllContactsDialingForBucket);
   }
 
   Future<void> _onFetchNumbers(
@@ -131,8 +135,8 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
       _currentIndex++;
       if (_currentIndex >= _currentQueue.length) {
         // Queue completed
-        final totalCount = await _repository.getContactsCount();
-        final calledCount = await _repository.getCalledContactsCount();
+        final totalCount = _currentQueue.length;
+        final calledCount = _currentQueue.length;
         emit(
           state.QueueCompleted(
             totalContacts: totalCount,
@@ -155,8 +159,8 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
 
     final contact = _currentQueue[_currentIndex];
     final remainingContacts = _currentQueue.sublist(_currentIndex + 1);
-    final totalCount = await _repository.getContactsCount();
-    final calledCount = await _repository.getCalledContactsCount();
+    final totalCount = _currentQueue.length;
+    final calledCount = _currentIndex;
 
     emit(
       state.DialingInProgress(
@@ -194,8 +198,8 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
       await _repository.updateContact(contact.id!, 'called', null);
 
       final remainingContacts = _currentQueue.sublist(_currentIndex + 1);
-      final totalCount = await _repository.getContactsCount();
-      final calledCount = await _repository.getCalledContactsCount();
+      final totalCount = _currentQueue.length;
+      final calledCount = _currentIndex + 1;
 
       emit(
         state.CallEnded(
@@ -230,8 +234,8 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
       );
 
       final remainingContacts = _currentQueue.sublist(_currentIndex + 1);
-      final totalCount = await _repository.getContactsCount();
-      final calledCount = await _repository.getCalledContactsCount();
+      final totalCount = _currentQueue.length;
+      final calledCount = _currentIndex + 1;
 
       emit(
         state.NoteSaved(
@@ -271,6 +275,132 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
     } catch (e) {
       emit(
         state.DialerError(message: 'Failed to stop dialing: ${e.toString()}'),
+      );
+    }
+  }
+
+  Future<void> _onStartCoMakerDialingForBucket(
+    StartCoMakerDialingForBucket event,
+    Emitter<state.DialerState> emit,
+  ) async {
+    try {
+      // Get co-maker prioritized loans from the bucket
+      final loans = AccountsBucketService.getCoMakerPrioritizedLoansByBucket(
+        event.assignmentData,
+        event.bucketType,
+      );
+
+      // Filter only loans with co-maker phones
+      final coMakerLoans = loans
+          .where(
+            (loan) =>
+                loan.borrower?.coMakerPhone != null &&
+                loan.borrower!.coMakerPhone!.isNotEmpty,
+          )
+          .toList();
+
+      if (coMakerLoans.isEmpty) {
+        emit(
+          state.DialerError(
+            message:
+                'No co-maker contacts found in ${event.bucketType.displayName} bucket',
+          ),
+        );
+        return;
+      }
+
+      // Convert loans to CallContact objects for co-makers
+      _currentQueue = coMakerLoans
+          .map(
+            (loan) => CallContact(
+              id: int.tryParse(loan.loanId ?? '0') ?? 0,
+              loanId: int.tryParse(loan.loanId ?? '0') ?? 0,
+              borrowerName: loan.borrower?.coMakerName ?? 'Unknown Co-Maker',
+              borrowerPhone: loan.borrower?.coMakerPhone ?? '',
+              coMakerName: loan.borrower?.borrowerName,
+              coMakerPhone: loan.borrower?.borrowerPhone,
+              bucket: event.bucketType.apiValue,
+              status: 'pending',
+            ),
+          )
+          .toList();
+
+      _currentIndex = 0;
+      await _makeCall(emit);
+    } catch (e) {
+      emit(
+        state.DialerError(
+          message: 'Failed to start co-maker dialing: ${e.toString()}',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onStartAllContactsDialingForBucket(
+    StartAllContactsDialingForBucket event,
+    Emitter<state.DialerState> emit,
+  ) async {
+    try {
+      // Get co-maker prioritized loans from the bucket
+      final loans = AccountsBucketService.getCoMakerPrioritizedLoansByBucket(
+        event.assignmentData,
+        event.bucketType,
+      );
+
+      // Filter only loans with valid phone numbers
+      final dialableLoans = loans.where((loan) => loan.hasValidPhone).toList();
+
+      if (dialableLoans.isEmpty) {
+        emit(
+          state.DialerError(
+            message:
+                'No dialable contacts found in ${event.bucketType.displayName} bucket',
+          ),
+        );
+        return;
+      }
+
+      // Convert loans to CallContact objects prioritizing co-makers
+      _currentQueue = dialableLoans.map((loan) {
+        final borrower = loan.borrower;
+        final hasCoMaker =
+            borrower?.coMakerPhone != null &&
+            borrower!.coMakerPhone!.isNotEmpty;
+
+        if (hasCoMaker) {
+          // Use co-maker as primary contact
+          return CallContact(
+            id: int.tryParse(loan.loanId ?? '0') ?? 0,
+            loanId: int.tryParse(loan.loanId ?? '0') ?? 0,
+            borrowerName: borrower.coMakerName ?? 'Unknown Co-Maker',
+            borrowerPhone: borrower.coMakerPhone!,
+            coMakerName: borrower.borrowerName,
+            coMakerPhone: borrower.borrowerPhone,
+            bucket: event.bucketType.apiValue,
+            status: 'pending',
+          );
+        } else {
+          // Use borrower as primary contact
+          return CallContact(
+            id: int.tryParse(loan.loanId ?? '0') ?? 0,
+            loanId: int.tryParse(loan.loanId ?? '0') ?? 0,
+            borrowerName: borrower?.borrowerName ?? 'Unknown Borrower',
+            borrowerPhone: borrower?.borrowerPhone ?? '',
+            coMakerName: borrower?.coMakerName,
+            coMakerPhone: borrower?.coMakerPhone,
+            bucket: event.bucketType.apiValue,
+            status: 'pending',
+          );
+        }
+      }).toList();
+
+      _currentIndex = 0;
+      await _makeCall(emit);
+    } catch (e) {
+      emit(
+        state.DialerError(
+          message: 'Failed to start bucket dialing: ${e.toString()}',
+        ),
       );
     }
   }
