@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lenderly_dialer/commons/models/auth_models.dart';
+import 'package:lenderly_dialer/commons/reusables/toast.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 
 class ProfileView extends StatefulWidget {
@@ -31,9 +32,7 @@ class _ProfileViewState extends State<ProfileView> {
         isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading profile: $e')));
+        toast(context, 'Error loading profile: $e', ShowToast.error);
       }
     }
   }

@@ -34,8 +34,6 @@ class AuthApiService {
         if (loginResponse.success &&
             loginResponse.userData != null &&
             loginResponse.token != null) {
-          print('Login successful, saving user session...');
-
           // Create user session
           final userSession = UserSession.fromUserData(
             loginResponse.userData!,
@@ -44,10 +42,6 @@ class AuthApiService {
 
           // Save to SharedPreferences
           await SharedPrefsStorageService.saveUserSession(userSession);
-
-          print('User session saved successfully');
-          print('User: ${userSession.fullName} (${userSession.email})');
-          print('Token: ${userSession.token?.substring(0, 20)}...');
         }
 
         return loginResponse;

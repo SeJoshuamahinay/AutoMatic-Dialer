@@ -220,13 +220,17 @@ class SharedPrefsStorageService {
         if (key.contains('user') ||
             key.contains('auth') ||
             key.contains('remember')) {
-          final value = prefs.get(key);
           if (key.contains('password')) {
+            // Password found but don't log for security
           } else if (key.contains('token')) {
-            final tokenStr = value.toString();
-          } else {}
+            // Token found but don't log the actual value for security
+          } else {
+            // Log other auth-related keys
+          }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      if (EnvironmentConfig.enableLogging) {}
+    }
   }
 }

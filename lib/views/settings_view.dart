@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lenderly_dialer/commons/reusables/toast.dart';
 import '../blocs/break/break_bloc.dart';
 import '../blocs/break/break_event.dart';
 import '../blocs/break/break_state.dart';
@@ -256,7 +257,7 @@ class _SettingsViewState extends State<SettingsView> {
                 },
               ),
             ),
-            const Divider(),
+            // const Divider(),
             // ListTile(
             //   leading: const Icon(Icons.speed),
             //   title: const Text('Auto-Dial Speed'),
@@ -267,15 +268,6 @@ class _SettingsViewState extends State<SettingsView> {
             //   },
             // ),
             // const Divider(),
-            ListTile(
-              leading: const Icon(Icons.backup),
-              title: const Text('Data Backup'),
-              subtitle: const Text('Backup call logs and settings'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // Navigate to backup settings
-              },
-            ),
           ],
         ),
       ),
@@ -409,26 +401,12 @@ class _SettingsViewState extends State<SettingsView> {
 
   void _startBreak(BreakType type) {
     context.read<BreakBloc>().add(StartBreak(type));
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Started ${type.name}'),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    toast(context, 'Started ${type.name}', ShowToast.warning);
   }
 
   void _endBreak() {
     context.read<BreakBloc>().add(const EndBreak());
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Break ended'),
-        backgroundColor: Colors.blue,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    toast(context, 'Break ended', ShowToast.error);
   }
 
   void _showAboutDialog() {

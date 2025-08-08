@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import '../commons/models/call_log_model.dart';
 import '../commons/models/break_session_model.dart';
+import '../commons/models/loan_models.dart';
+import '../commons/models/auth_models.dart';
+import '../commons/services/accounts_bucket_service.dart';
+import '../commons/services/shared_prefs_storage_service.dart';
+import '../commons/utils/gesture_error_handler.dart';
+import 'bucket_view.dart';
 import 'dart:math' as math;
 
 class DashboardView extends StatefulWidget {
@@ -17,10 +23,94 @@ class _DashboardViewState extends State<DashboardView> {
   final List<CallLog> _mockCallLogs = [];
   final List<BreakSession> _mockBreakSessions = [];
 
+  // Loan assignment data
+  UserSession? userSession;
+  AssignmentData? assignmentData;
+  bool _isRequestingData = false;
+
   @override
   void initState() {
     super.initState();
     _generateMockData();
+    _loadUserSession();
+  }
+
+  Future<void> _loadUserSession() async {
+    try {
+      final session = await SharedPrefsStorageService.getUserSession();
+      if (mounted) {
+        setState(() {
+          userSession = session;
+        });
+      }
+    } catch (e) {
+      // Handle error silently for now
+    }
+  }
+
+  Future<void> _requestAccountData() async {
+    if (_isRequestingData) return;
+
+    if (userSession?.userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to request account data'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isRequestingData = true;
+    });
+
+    try {
+      final response = await AccountsBucketService.assignLoansToUser(
+        userSession!.userId.toString(),
+      );
+
+      if (mounted) {
+        setState(() {
+          _isRequestingData = false;
+        });
+
+        if (response.success && response.data != null) {
+          setState(() {
+            assignmentData = response.data;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Successfully assigned ${response.data!.totalLoansCount} accounts',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to assign accounts: ${response.message}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isRequestingData = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error requesting account data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _generateMockData() {
@@ -75,12 +165,12 @@ class _DashboardViewState extends State<DashboardView> {
         foregroundColor: Colors.white,
         elevation: 2,
         actions: [
-          IconButton(
+          GestureErrorHandler.safeIconButton(
             icon: const Icon(Icons.calendar_today),
             onPressed: _selectDate,
             tooltip: 'Select Date',
           ),
-          IconButton(
+          GestureErrorHandler.safeIconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshData,
             tooltip: 'Refresh Data',
@@ -96,6 +186,8 @@ class _DashboardViewState extends State<DashboardView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildCurrentTimeCard(),
+              const SizedBox(height: 16),
+              _buildLoanAssignmentCard(),
               const SizedBox(height: 16),
               _buildOverallAnalytics(),
               const SizedBox(height: 16),
@@ -158,6 +250,346 @@ class _DashboardViewState extends State<DashboardView> {
                   ],
                 );
               },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoanAssignmentCard() {
+    return Card(
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.assignment, color: Colors.blue, size: 28),
+                const SizedBox(width: 12),
+                const Text(
+                  'Account Assignments',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                if (_isRequestingData)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            if (assignmentData == null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.cloud_download,
+                      color: Colors.blue,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No accounts assigned yet',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Request new account assignments to start dialing',
+                      style: TextStyle(color: Colors.grey[600]),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: GestureErrorHandler.safeElevatedButton(
+                        onPressed: _isRequestingData
+                            ? null
+                            : _requestAccountData,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.refresh),
+                            const SizedBox(width: 8),
+                            Text(
+                              _isRequestingData
+                                  ? 'Requesting...'
+                                  : 'Request Data',
+                            ),
+                          ],
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              // Assignment overview
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.green.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildAssignmentStat(
+                          'Total',
+                          '${assignmentData!.totalLoansCount}',
+                          Icons.assignment,
+                          Colors.blue,
+                        ),
+                        _buildAssignmentStat(
+                          'Dialable',
+                          '${assignmentData!.dialableLoans.length}',
+                          Icons.phone,
+                          Colors.green,
+                        ),
+                        _buildAssignmentStat(
+                          'Assigned',
+                          _formatDateTime(assignmentData!.assignedAt),
+                          Icons.schedule,
+                          Colors.orange,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Bucket navigation
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildBucketButton(
+                      'Frontend',
+                      assignmentData!.getCountForBucket(BucketType.frontend),
+                      assignmentData!.getDialableCountForBucket(
+                        BucketType.frontend,
+                      ),
+                      Colors.green,
+                      Icons.trending_up,
+                      BucketType.frontend,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildBucketButton(
+                      'Middlecore',
+                      assignmentData!.getCountForBucket(BucketType.middlecore),
+                      assignmentData!.getDialableCountForBucket(
+                        BucketType.middlecore,
+                      ),
+                      Colors.orange,
+                      Icons.warning,
+                      BucketType.middlecore,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildBucketButton(
+                      'Hardcore',
+                      assignmentData!.getCountForBucket(BucketType.hardcore),
+                      assignmentData!.getDialableCountForBucket(
+                        BucketType.hardcore,
+                      ),
+                      Colors.red,
+                      Icons.priority_high,
+                      BucketType.hardcore,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Refresh button
+              SizedBox(
+                width: double.infinity,
+                child: GestureErrorHandler.wrapWithErrorHandler(
+                  child: OutlinedButton.icon(
+                    onPressed: _isRequestingData ? null : _requestAccountData,
+                    icon: const Icon(Icons.refresh),
+                    label: Text(
+                      _isRequestingData
+                          ? 'Refreshing...'
+                          : 'Refresh Assignments',
+                    ),
+                  ),
+                  fallbackWidget: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.refresh, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isRequestingData
+                              ? 'Refreshing...'
+                              : 'Refresh Assignments',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssignmentStat(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _buildBucketButton(
+    String title,
+    int totalCount,
+    int dialableCount,
+    Color color,
+    IconData icon,
+    BucketType bucketType,
+  ) {
+    return GestureErrorHandler.wrapWithErrorHandler(
+      child: Material(
+        color: totalCount > 0
+            ? color.withValues(alpha: 0.1)
+            : Colors.grey.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        child: GestureErrorHandler.safeInkWell(
+          onTap: totalCount > 0 && assignmentData != null
+              ? () => GestureErrorHandler.safeNavigate(
+                  context,
+                  BucketView(
+                    bucketType: bucketType,
+                    assignmentData: assignmentData!,
+                  ),
+                )
+              : null,
+          borderRadius: BorderRadius.circular(8),
+          splashColor: color.withValues(alpha: 0.2),
+          highlightColor: color.withValues(alpha: 0.1),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                Icon(
+                  icon,
+                  color: totalCount > 0 ? color : Colors.grey,
+                  size: 24,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: totalCount > 0 ? color : Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$totalCount',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: totalCount > 0 ? color : Colors.grey,
+                  ),
+                ),
+                if (dialableCount > 0)
+                  Text(
+                    '($dialableCount dialable)',
+                    style: const TextStyle(fontSize: 10, color: Colors.green),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      fallbackWidget: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: Colors.grey, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '$totalCount',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
             ),
           ],
         ),
@@ -578,6 +1010,12 @@ class _DashboardViewState extends State<DashboardView> {
     } else {
       return '${minutes}m';
     }
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} '
+        '${dateTime.hour.toString().padLeft(2, '0')}:'
+        '${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
   String _getDayName(int weekday) {
