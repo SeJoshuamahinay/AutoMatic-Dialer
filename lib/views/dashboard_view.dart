@@ -6,7 +6,9 @@ import '../commons/models/auth_models.dart';
 import '../commons/services/accounts_bucket_service.dart';
 import '../commons/services/shared_prefs_storage_service.dart';
 import '../commons/utils/gesture_error_handler.dart';
-import 'bucket_view.dart';
+import 'front_end_view.dart';
+import 'mid_range_view.dart';
+import 'hardcore_view.dart';
 import 'dart:math' as math;
 
 class DashboardView extends StatefulWidget {
@@ -190,6 +192,8 @@ class _DashboardViewState extends State<DashboardView> {
               _buildLoanAssignmentCard(),
               const SizedBox(height: 16),
               _buildOverallAnalytics(),
+              const SizedBox(height: 16),
+              _buildBucketBreakdown(),
               const SizedBox(height: 16),
               _buildCallStatusBreakdown(),
               const SizedBox(height: 16),
@@ -516,13 +520,7 @@ class _DashboardViewState extends State<DashboardView> {
         borderRadius: BorderRadius.circular(8),
         child: GestureErrorHandler.safeInkWell(
           onTap: totalCount > 0 && assignmentData != null
-              ? () => GestureErrorHandler.safeNavigate(
-                  context,
-                  BucketView(
-                    bucketType: bucketType,
-                    assignmentData: assignmentData!,
-                  ),
-                )
+              ? () => _navigateToBucket(bucketType)
               : null,
           borderRadius: BorderRadius.circular(8),
           splashColor: color.withValues(alpha: 0.2),
@@ -598,25 +596,83 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget _buildOverallAnalytics() {
-    final todaysCalls = _mockCallLogs
-        .where(
-          (log) =>
-              log.callTime.day == selectedDate.day &&
-              log.callTime.month == selectedDate.month &&
-              log.callTime.year == selectedDate.year,
-        )
-        .toList();
+    // If no assignment data, show empty state
+    if (assignmentData == null) {
+      return Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.analytics, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Overall Analytics',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.bar_chart, color: Colors.grey[400], size: 48),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No data available',
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Request account assignments to view analytics',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
-    final totalCalls = todaysCalls.length;
-    final finishedCalls = todaysCalls
-        .where((log) => log.status == CallStatus.finished)
-        .length;
-    final noAnswerCalls = todaysCalls
-        .where((log) => log.status == CallStatus.noAnswer)
-        .length;
-    final hangUpCalls = todaysCalls
-        .where((log) => log.status == CallStatus.hangUp)
-        .length;
+    // Calculate real statistics from assignment data
+    final frontendStats = AccountsBucketService.getBucketStatistics(
+      assignmentData!,
+      BucketType.frontend,
+    );
+    final midRangeStats = AccountsBucketService.getBucketStatistics(
+      assignmentData!,
+      BucketType.middlecore,
+    );
+    final hardcoreStats = AccountsBucketService.getBucketStatistics(
+      assignmentData!,
+      BucketType.hardcore,
+    );
+
+    final totalContacts = assignmentData!.totalLoansCount;
+    final totalDialable =
+        (frontendStats['dialable_count'] ?? 0) +
+        (midRangeStats['dialable_count'] ?? 0) +
+        (hardcoreStats['dialable_count'] ?? 0);
+    final totalCoMakers =
+        (frontendStats['co_maker_phone_count'] ?? 0) +
+        (midRangeStats['co_maker_phone_count'] ?? 0) +
+        (hardcoreStats['co_maker_phone_count'] ?? 0);
+    final totalBorrowers =
+        (frontendStats['borrower_phone_count'] ?? 0) +
+        (midRangeStats['borrower_phone_count'] ?? 0) +
+        (hardcoreStats['borrower_phone_count'] ?? 0);
 
     return Card(
       elevation: 2,
@@ -635,8 +691,8 @@ class _DashboardViewState extends State<DashboardView> {
                 ),
                 const Spacer(),
                 Text(
-                  _formatDate(selectedDate),
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  'Last updated: ${_formatTime(assignmentData!.assignedAt)}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
             ),
@@ -645,18 +701,18 @@ class _DashboardViewState extends State<DashboardView> {
               children: [
                 Expanded(
                   child: _buildAnalyticsCard(
-                    title: 'Total Calls',
-                    value: totalCalls.toString(),
-                    icon: Icons.phone,
+                    title: 'Total Contacts',
+                    value: totalContacts.toString(),
+                    icon: Icons.contacts,
                     color: Colors.blue,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildAnalyticsCard(
-                    title: 'Finished',
-                    value: finishedCalls.toString(),
-                    icon: Icons.check_circle,
+                    title: 'Dialable',
+                    value: totalDialable.toString(),
+                    icon: Icons.phone,
                     color: Colors.green,
                   ),
                 ),
@@ -667,23 +723,214 @@ class _DashboardViewState extends State<DashboardView> {
               children: [
                 Expanded(
                   child: _buildAnalyticsCard(
-                    title: 'No Answer',
-                    value: noAnswerCalls.toString(),
-                    icon: Icons.phone_missed,
+                    title: 'Co-Makers',
+                    value: totalCoMakers.toString(),
+                    icon: Icons.people,
                     color: Colors.orange,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildAnalyticsCard(
-                    title: 'Hang Ups',
-                    value: hangUpCalls.toString(),
-                    icon: Icons.call_end,
-                    color: Colors.red,
+                    title: 'Borrowers',
+                    value: totalBorrowers.toString(),
+                    icon: Icons.person,
+                    color: Colors.purple,
                   ),
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBucketBreakdown() {
+    if (assignmentData == null) {
+      return const SizedBox.shrink();
+    }
+
+    final frontendStats = AccountsBucketService.getBucketStatistics(
+      assignmentData!,
+      BucketType.frontend,
+    );
+    final midRangeStats = AccountsBucketService.getBucketStatistics(
+      assignmentData!,
+      BucketType.middlecore,
+    );
+    final hardcoreStats = AccountsBucketService.getBucketStatistics(
+      assignmentData!,
+      BucketType.hardcore,
+    );
+
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.dashboard, color: Colors.blue),
+                const SizedBox(width: 8),
+                const Text(
+                  'Bucket Breakdown',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Frontend Bucket
+            _buildBucketBreakdownRow(
+              'Frontend',
+              frontendStats,
+              Colors.green,
+              Icons.trending_up,
+              BucketType.frontend,
+            ),
+            const SizedBox(height: 12),
+
+            // Mid-range Bucket
+            _buildBucketBreakdownRow(
+              'Mid-range',
+              midRangeStats,
+              Colors.orange,
+              Icons.warning,
+              BucketType.middlecore,
+            ),
+            const SizedBox(height: 12),
+
+            // Hardcore Bucket
+            _buildBucketBreakdownRow(
+              'Hardcore',
+              hardcoreStats,
+              Colors.red,
+              Icons.priority_high,
+              BucketType.hardcore,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBucketBreakdownRow(
+    String title,
+    Map<String, dynamic> stats,
+    Color color,
+    IconData icon,
+    BucketType bucketType,
+  ) {
+    final totalContacts = stats['total_loans'] ?? 0;
+    final dialableCount = stats['dialable_count'] ?? 0;
+    final coMakerCount = stats['co_maker_phone_count'] ?? 0;
+    final borrowerCount = stats['borrower_phone_count'] ?? 0;
+
+    return GestureDetector(
+      onTap: totalContacts > 0 ? () => _navigateToBucket(bucketType) : null,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: totalContacts > 0
+              ? color.withValues(alpha: 0.1)
+              : Colors.grey.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: totalContacts > 0
+                ? color.withValues(alpha: 0.3)
+                : Colors.grey.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: totalContacts > 0 ? color : Colors.grey,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: totalContacts > 0 ? color : Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        'Total: $totalContacts',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Dialable: $dialableCount',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.people, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$coMakerCount',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.person, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$borrowerCount',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            if (totalContacts > 0) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: color.withValues(alpha: 0.7),
+              ),
+            ],
           ],
         ),
       ),
@@ -994,11 +1241,11 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   String _formatTime(DateTime dateTime) {
-    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _formatDate(DateTime dateTime) {
-    return '${_getMonthName(dateTime.month)} ${dateTime.day}, ${dateTime.year}';
+    final hour12 = dateTime.hour == 0
+        ? 12
+        : (dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour);
+    final amPm = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return '${hour12.toString()}:${dateTime.minute.toString().padLeft(2, '0')} $amPm';
   }
 
   String _formatDuration(Duration duration) {
@@ -1069,5 +1316,24 @@ class _DashboardViewState extends State<DashboardView> {
     setState(() {
       _generateMockData();
     });
+  }
+
+  void _navigateToBucket(BucketType bucketType) {
+    if (assignmentData == null) return;
+
+    Widget targetView;
+    switch (bucketType) {
+      case BucketType.frontend:
+        targetView = FrontEndView(assignmentData: assignmentData);
+        break;
+      case BucketType.middlecore:
+        targetView = MidRangeView(assignmentData: assignmentData);
+        break;
+      case BucketType.hardcore:
+        targetView = HardcoreView(assignmentData: assignmentData);
+        break;
+    }
+
+    GestureErrorHandler.safeNavigate(context, targetView);
   }
 }

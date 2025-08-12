@@ -70,6 +70,19 @@ class DialerPresenter {
     );
   }
 
+  // Start auto-dialing borrowers for a specific bucket
+  void startBorrowerDialingForBucket(
+    BucketType bucketType,
+    AssignmentData assignmentData,
+  ) {
+    _dialerBloc.add(
+      StartBorrowerDialingForBucket(
+        bucketType: bucketType,
+        assignmentData: assignmentData,
+      ),
+    );
+  }
+
   // Get the current state stream
   Stream<state.DialerState> get stateStream => _dialerBloc.stream;
 

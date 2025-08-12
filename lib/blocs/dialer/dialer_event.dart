@@ -73,3 +73,16 @@ class StartAllContactsDialingForBucket extends DialerEvent {
   @override
   List<Object?> get props => [bucketType, assignmentData];
 }
+
+class StartBorrowerDialingForBucket extends DialerEvent {
+  final BucketType bucketType;
+  final AssignmentData assignmentData;
+
+  const StartBorrowerDialingForBucket({
+    required this.bucketType,
+    required this.assignmentData,
+  });
+
+  @override
+  List<Object?> get props => [bucketType, assignmentData];
+}

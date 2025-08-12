@@ -25,6 +25,7 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
     on<RefreshNumbers>(_onRefreshNumbers);
     on<StartCoMakerDialingForBucket>(_onStartCoMakerDialingForBucket);
     on<StartAllContactsDialingForBucket>(_onStartAllContactsDialingForBucket);
+    on<StartBorrowerDialingForBucket>(_onStartBorrowerDialingForBucket);
   }
 
   Future<void> _onFetchNumbers(
@@ -400,6 +401,63 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
       emit(
         state.DialerError(
           message: 'Failed to start bucket dialing: ${e.toString()}',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onStartBorrowerDialingForBucket(
+    StartBorrowerDialingForBucket event,
+    Emitter<state.DialerState> emit,
+  ) async {
+    try {
+      // Get loans from the bucket
+      final loans = AccountsBucketService.getLoansByBucket(
+        event.assignmentData,
+        event.bucketType,
+      );
+
+      // Filter only loans with borrower phones (excluding co-maker only loans)
+      final borrowerLoans = loans
+          .where(
+            (loan) =>
+                loan.borrower?.borrowerPhone != null &&
+                loan.borrower!.borrowerPhone!.isNotEmpty,
+          )
+          .toList();
+
+      if (borrowerLoans.isEmpty) {
+        emit(
+          state.DialerError(
+            message:
+                'No borrower contacts found in ${event.bucketType.displayName} bucket',
+          ),
+        );
+        return;
+      }
+
+      // Convert loans to CallContact objects for borrowers
+      _currentQueue = borrowerLoans
+          .map(
+            (loan) => CallContact(
+              id: int.tryParse(loan.loanId ?? '0') ?? 0,
+              loanId: int.tryParse(loan.loanId ?? '0') ?? 0,
+              borrowerName: loan.borrower?.borrowerName ?? 'Unknown Borrower',
+              borrowerPhone: loan.borrower?.borrowerPhone ?? '',
+              coMakerName: loan.borrower?.coMakerName,
+              coMakerPhone: loan.borrower?.coMakerPhone,
+              bucket: event.bucketType.apiValue,
+              status: 'pending',
+            ),
+          )
+          .toList();
+
+      _currentIndex = 0;
+      await _makeCall(emit);
+    } catch (e) {
+      emit(
+        state.DialerError(
+          message: 'Failed to start borrower dialing: ${e.toString()}',
         ),
       );
     }

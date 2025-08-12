@@ -20,17 +20,51 @@ class MidRangeView extends StatefulWidget {
 
 class _MidRangeViewState extends State<MidRangeView> {
   List<LoanRecord> _loans = [];
+  List<LoanRecord> _filteredLoans = [];
   Map<String, dynamic> _statistics = {};
-  bool _prioritizeCoMaker = true;
   UserSession? _userSession;
   AssignmentData? _assignmentData;
   bool _isLoading = true;
   String? _errorMessage;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
     _initializeData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text;
+      _filterLoans();
+    });
+  }
+
+  void _filterLoans() {
+    if (_searchQuery.isEmpty) {
+      _filteredLoans = List.from(_loans);
+    } else {
+      _filteredLoans = _loans.where((loan) {
+        final loanId = loan.loanId?.toLowerCase() ?? '';
+        final borrowerName = loan.borrower?.borrowerName?.toLowerCase() ?? '';
+        final accountNumber = loan.loanAccountNumber?.toLowerCase() ?? '';
+        final query = _searchQuery.toLowerCase();
+
+        return loanId.contains(query) ||
+            borrowerName.contains(query) ||
+            accountNumber.contains(query);
+      }).toList();
+    }
   }
 
   Future<void> _initializeData() async {
@@ -85,22 +119,61 @@ class _MidRangeViewState extends State<MidRangeView> {
 
     setState(() {
       _isLoading = false;
-      if (_prioritizeCoMaker) {
-        _loans = AccountsBucketService.getCoMakerPrioritizedLoansByBucket(
-          _assignmentData!,
-          BucketType.middlecore,
-        );
-      } else {
-        _loans = AccountsBucketService.getLoansByBucket(
-          _assignmentData!,
-          BucketType.middlecore,
-        );
-      }
+      _loans = AccountsBucketService.getLoansByBucket(
+        _assignmentData!,
+        BucketType.middlecore,
+      );
       _statistics = AccountsBucketService.getBucketStatistics(
         _assignmentData!,
         BucketType.middlecore,
       );
+      _filterLoans(); // Initialize filtered loans
     });
+  }
+
+  Future<void> _refreshData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      if (widget.assignmentData != null) {
+        // If assignmentData was passed, re-request fresh data
+        _userSession = await SharedPrefsStorageService.getUserSession();
+        if (_userSession != null) {
+          final response = await AccountsBucketService.assignLoansToUser(
+            _userSession!.userId.toString(),
+          );
+
+          if (response.success && response.data != null) {
+            setState(() {
+              _assignmentData = response.data;
+              _isLoading = false;
+            });
+            _loadLoansData();
+          } else {
+            setState(() {
+              _errorMessage = 'Failed to refresh data: ${response.message}';
+              _isLoading = false;
+            });
+          }
+        } else {
+          setState(() {
+            _errorMessage = 'Please log in to refresh data';
+            _isLoading = false;
+          });
+        }
+      } else {
+        // Re-initialize data if no assignmentData was passed
+        await _initializeData();
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to refresh data: $e';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _makePhoneCall(String phoneNumber, String contactName) async {
@@ -154,7 +227,7 @@ class _MidRangeViewState extends State<MidRangeView> {
         _assignmentData!,
       );
     } else {
-      presenter.startAllContactsDialingForBucket(
+      presenter.startBorrowerDialingForBucket(
         BucketType.middlecore,
         _assignmentData!,
       );
@@ -173,86 +246,92 @@ class _MidRangeViewState extends State<MidRangeView> {
     if (_assignmentData == null) return const SizedBox.shrink();
 
     final coMakerCount = _statistics['co_maker_phone_count'] ?? 0;
-    final dialableCount = _statistics['dialable_count'] ?? 0;
+    final borrowerCount = _statistics['borrower_phone_count'] ?? 0;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Icon and Header
-            Icon(Icons.autorenew, color: Colors.orange.shade700, size: 20),
-            const SizedBox(width: 8),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Row(
+        children: [
+          // Icon and Header
+          Icon(Icons.autorenew, color: Colors.orange.shade700, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            'Automation',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.orange.shade800,
+            ),
+          ),
+          const Spacer(),
+          // Buttons
+          if (coMakerCount > 0) ...[
+            _buildCompactButton(
+              onPressed: () => _startAutoDialing(true),
+              icon: Icons.phone_callback,
+              count: coMakerCount,
+              color: Colors.green,
+              label: 'Co-Makers',
+            ),
+            if (borrowerCount > 0) const SizedBox(width: 6),
+          ],
+          const SizedBox(width: 5),
+          if (borrowerCount > 0)
+            _buildCompactButton(
+              onPressed: () => _startAutoDialing(false),
+              icon: Icons.person,
+              count: borrowerCount,
+              color: Colors.orange,
+              label: 'Borrowers',
+            ),
+          if (coMakerCount == 0 && borrowerCount == 0)
             Text(
-              'Auto Dialing',
+              'No dialable',
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.orange.shade800,
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
               ),
             ),
-            const Spacer(),
-            // Buttons
-            if (coMakerCount > 0)
-              SizedBox(
-                width: 100,
-                child: ElevatedButton.icon(
-                  onPressed: () => _startAutoDialing(true),
-                  icon: const Icon(Icons.people, size: 14),
-                  label: Text(
-                    '($coMakerCount)',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 8,
-                    ),
-                  ),
-                ),
-              ),
-            if (coMakerCount > 0 && dialableCount > coMakerCount)
-              const SizedBox(width: 8),
-            if (dialableCount > 0)
-              SizedBox(
-                width: 80,
-                child: ElevatedButton.icon(
-                  onPressed: () => _startAutoDialing(false),
-                  icon: const Icon(Icons.phone, size: 14),
-                  label: Text(
-                    '($dialableCount)',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 8,
-                    ),
-                  ),
-                ),
-              ),
-            if (dialableCount == 0)
-              Text(
-                'No dialable contacts',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required int count,
+    required Color color,
+    required String label,
+  }) {
+    return SizedBox(
+      height: 32,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12),
+            const SizedBox(width: 4),
+            Text(
+              '$label ($count)',
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),
@@ -265,45 +344,33 @@ class _MidRangeViewState extends State<MidRangeView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
       appBar: AppBar(
-        title: const Text(
-          'Middlecore Bucket',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Middlecore Bucket',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            Text(
+              'Moderate priority accounts requiring focused attention',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.orange.shade100,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
         ),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
         elevation: 2,
-        actions: [
-          if (!_isLoading && _assignmentData != null)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
-              onSelected: (value) {
-                if (value == 'toggle_priority') {
-                  setState(() {
-                    _prioritizeCoMaker = !_prioritizeCoMaker;
-                    _loadLoansData();
-                  });
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'toggle_priority',
-                  child: Row(
-                    children: [
-                      Icon(_prioritizeCoMaker ? Icons.people : Icons.person),
-                      const SizedBox(width: 8),
-                      Text(
-                        _prioritizeCoMaker
-                            ? 'Show All Loans'
-                            : 'Prioritize Co-Maker',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-        ],
+        toolbarHeight: 70,
       ),
-      body: SafeArea(child: _buildBody(theme)),
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        color: Colors.orange,
+        child: SafeArea(child: _buildBody(theme)),
+      ),
     );
   }
 
@@ -374,6 +441,44 @@ class _MidRangeViewState extends State<MidRangeView> {
 
     return Column(
       children: [
+        // Search Bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search by Loan ID, Account Number, or Borrower Name',
+              prefixIcon: const Icon(Icons.search, color: Colors.orange),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.orange),
+                      onPressed: () {
+                        _searchController.clear();
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.orange.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.orange.shade500, width: 2),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.orange.shade300),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ),
+
         // Optimized Statistics Card (2 rows layout)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -384,134 +489,117 @@ class _MidRangeViewState extends State<MidRangeView> {
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Column(
+              child: Row(
                 children: [
-                  // First row
-                  Row(
-                    children: [
-                      _buildStatisticTile(
-                        Icons.list_alt,
-                        'Total',
-                        '${_statistics['total_loans'] ?? 0}',
-                        iconColor: Colors.orange.shade400,
-                      ),
-                      _buildStatisticTile(
-                        Icons.phone,
-                        'Dialable',
-                        '${_statistics['dialable_count'] ?? 0}',
-                        iconColor: Colors.orange.shade400,
-                      ),
-                      _buildStatisticTile(
-                        Icons.people,
-                        'Co-Maker',
-                        '${_statistics['co_maker_phone_count'] ?? 0}',
-                        iconColor: Colors.orange.shade400,
-                      ),
-                    ],
+                  _buildStatisticTile(
+                    Icons.contacts,
+                    'Total Contacts',
+                    '${_statistics['total_loans'] ?? 0}',
+                    iconColor: Colors.orange.shade400,
                   ),
-                  const SizedBox(height: 8),
-                  // Second row
-                  Row(
-                    children: [
-                      _buildStatisticTile(
-                        Icons.person,
-                        'Borrower',
-                        '${_statistics['borrower_phone_count'] ?? 0}',
-                        iconColor: Colors.orange.shade400,
-                      ),
-                      _buildStatisticTile(
-                        Icons.block,
-                        'No Phone',
-                        '${_statistics['no_phone_count'] ?? 0}',
-                        iconColor: Colors.orange.shade400,
-                      ),
-                      if ((_statistics['co_maker_percentage'] ?? 0) > 0)
-                        _buildStatisticTile(
-                          Icons.percent,
-                          'Co-Maker %',
-                          '${_statistics['co_maker_percentage']}%',
-                          iconColor: Colors.orange.shade400,
-                        )
-                      else
-                        const Expanded(
-                          child: SizedBox(),
-                        ), // Empty space if no percentage
-                    ],
+                  _buildStatisticTile(
+                    Icons.phone_in_talk,
+                    'Called',
+                    '0', // TODO: Integrate with dialer state
+                    iconColor: Colors.green.shade400,
+                  ),
+                  _buildStatisticTile(
+                    Icons.pending,
+                    'Pending',
+                    '${_statistics['total_loans'] ?? 0}', // For now, all are pending
+                    iconColor: Colors.orange.shade400,
                   ),
                 ],
               ),
             ),
           ),
         ),
-        // Filter Toggle
-        if (_loans.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SwitchListTile(
-                    title: const Text('Prioritize Co-Maker Phones'),
-                    subtitle: Text(
-                      _prioritizeCoMaker
-                          ? 'Co-maker numbers shown first'
-                          : 'Original order',
-                    ),
-                    value: _prioritizeCoMaker,
-                    onChanged: (value) {
-                      setState(() {
-                        _prioritizeCoMaker = value;
-                        _loadLoansData();
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+
+        // Automationing Buttons
+        _buildAutoDialingButtons(),
 
         // Loans List
         Expanded(
-          child: _loans.isEmpty
+          child: _filteredLoans.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.assignment_outlined,
+                        _searchQuery.isNotEmpty
+                            ? Icons.search_off
+                            : Icons.assignment_outlined,
                         size: 64,
                         color: Colors.grey[400],
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'No middlecore accounts assigned',
+                        _searchQuery.isNotEmpty
+                            ? 'No accounts found matching "$_searchQuery"'
+                            : 'No middlecore accounts assigned',
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: Colors.grey[600],
                         ),
+                        textAlign: TextAlign.center,
                       ),
+                      if (_searchQuery.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () {
+                            _searchController.clear();
+                          },
+                          child: const Text(
+                            'Clear search',
+                            style: TextStyle(color: Colors.orange),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 )
-              : ListView.separated(
-                  itemCount: _loans.length,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  separatorBuilder: (context, idx) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final loan = _loans[index];
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      child: _buildLoanCard(loan, index),
-                    );
-                  },
+              : Column(
+                  children: [
+                    // Search Results Count
+                    if (_searchQuery.isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        color: Colors.orange.shade50,
+                        child: Text(
+                          'Found ${_filteredLoans.length} of ${_loans.length} accounts',
+                          style: TextStyle(
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    // Loans List
+                    Expanded(
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: _filteredLoans.length,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        separatorBuilder: (context, idx) =>
+                            const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final loan = _filteredLoans[index];
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            child: _buildLoanCard(loan, index),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
         ),
-
-        // Auto Dialing Buttons
-        if (_loans.isNotEmpty) _buildAutoDialingButtons(),
       ],
     );
   }
@@ -593,10 +681,10 @@ class _MidRangeViewState extends State<MidRangeView> {
           title: Row(
             children: [
               Expanded(
-                child: Text(
-                  borrower?.borrowerName ?? 'Unknown Borrower',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
+                child: _buildHighlightedText(
+                  (borrower?.borrowerName ?? 'Unknown Borrower').toUpperCase(),
+                  _searchQuery,
+                  const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
               if (!loan.hasValidPhone)
@@ -616,9 +704,10 @@ class _MidRangeViewState extends State<MidRangeView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (loan.loanAccountNumber != null)
-                Text(
+                _buildHighlightedText(
                   'Account: ${loan.loanAccountNumber}',
-                  style: const TextStyle(fontSize: 13),
+                  _searchQuery,
+                  const TextStyle(fontSize: 13),
                 ),
               if (loan.outstandingBalance != null)
                 Text(
@@ -774,6 +863,57 @@ class _MidRangeViewState extends State<MidRangeView> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHighlightedText(
+    String text,
+    String searchQuery, [
+    TextStyle? style,
+  ]) {
+    if (searchQuery.isEmpty) {
+      return Text(text, style: style);
+    }
+
+    final String lowerText = text.toLowerCase();
+    final String lowerQuery = searchQuery.toLowerCase();
+
+    if (!lowerText.contains(lowerQuery)) {
+      return Text(text, style: style);
+    }
+
+    final List<TextSpan> spans = [];
+    int start = 0;
+
+    while (start < text.length) {
+      final int index = lowerText.indexOf(lowerQuery, start);
+      if (index == -1) {
+        spans.add(TextSpan(text: text.substring(start)));
+        break;
+      }
+
+      if (index > start) {
+        spans.add(TextSpan(text: text.substring(start, index)));
+      }
+
+      spans.add(
+        TextSpan(
+          text: text.substring(index, index + searchQuery.length),
+          style: const TextStyle(
+            backgroundColor: Colors.yellow,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+
+      start = index + searchQuery.length;
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: style ?? DefaultTextStyle.of(context).style,
+        children: spans,
+      ),
     );
   }
 }

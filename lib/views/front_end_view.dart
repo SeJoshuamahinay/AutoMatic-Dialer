@@ -20,17 +20,58 @@ class FrontEndView extends StatefulWidget {
 
 class _FrontEndViewState extends State<FrontEndView> {
   List<LoanRecord> _loans = [];
+  List<LoanRecord> _filteredLoans = [];
   Map<String, dynamic> _statistics = {};
   bool _prioritizeCoMaker = true;
   UserSession? _userSession;
   AssignmentData? _assignmentData;
   bool _isLoading = true;
   String? _errorMessage;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
     _initializeData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text;
+      _filterLoans();
+    });
+  }
+
+  void _filterLoans() {
+    if (_searchQuery.isEmpty) {
+      _filteredLoans = List.from(_loans);
+    } else {
+      _filteredLoans = _loans.where((loan) {
+        final loanId = loan.loanId?.toLowerCase() ?? '';
+        final borrowerName = loan.borrower?.borrowerName?.toLowerCase() ?? '';
+        final accountNumber = loan.loanAccountNumber?.toLowerCase() ?? '';
+        final coMakerName = loan.borrower?.coMakerName?.toLowerCase() ?? '';
+
+        final query = _searchQuery.toLowerCase();
+        return loanId.contains(query) ||
+            borrowerName.contains(query) ||
+            accountNumber.contains(query) ||
+            coMakerName.contains(query);
+      }).toList();
+    }
+  }
+
+  Future<void> _refreshData() async {
+    await _initializeData();
   }
 
   Future<void> _initializeData() async {
@@ -93,6 +134,7 @@ class _FrontEndViewState extends State<FrontEndView> {
         _assignmentData!,
         BucketType.frontend,
       );
+      _filterLoans(); // Update filtered loans after loading
     });
   }
 
@@ -166,88 +208,60 @@ class _FrontEndViewState extends State<FrontEndView> {
     if (_assignmentData == null) return const SizedBox.shrink();
 
     final coMakerCount = _statistics['co_maker_phone_count'] ?? 0;
-    final dialableCount = _statistics['dialable_count'] ?? 0;
+    final borrowerCount = _statistics['borrower_phone_count'] ?? 0;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Icon and Header
-            Icon(Icons.autorenew, color: Colors.blue.shade700, size: 20),
-            const SizedBox(width: 8),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Row(
+        children: [
+          // Icon and Header
+          Icon(Icons.autorenew, color: Colors.blue.shade700, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            'Automation',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.blue.shade800,
+            ),
+          ),
+          const Spacer(),
+          // Buttons
+          if (coMakerCount > 0) ...[
+            _buildCompactButton(
+              onPressed: () => _startAutoDialing(true),
+              icon: Icons.phone_callback,
+              count: coMakerCount,
+              color: Colors.green,
+              label: 'Co-Makers',
+            ),
+            if (borrowerCount > 0) const SizedBox(width: 6),
+          ],
+          const SizedBox(width: 5),
+          if (borrowerCount > 0)
+            _buildCompactButton(
+              onPressed: () => _startAutoDialing(false),
+              icon: Icons.person,
+              count: borrowerCount,
+              color: const Color.fromARGB(255, 171, 123, 52),
+              label: 'Borrowers',
+            ),
+          if (coMakerCount == 0 && borrowerCount == 0)
             Text(
-              'Auto Dialing',
+              'No dialable',
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue.shade800,
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
               ),
             ),
-            const Spacer(),
-            // Buttons
-            if (coMakerCount > 0)
-              SizedBox(
-                width: 100,
-                child: ElevatedButton.icon(
-                  onPressed: () => _startAutoDialing(true),
-                  icon: const Icon(Icons.people, size: 14),
-                  label: Text(
-                    '($coMakerCount)',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 8,
-                    ),
-                  ),
-                ),
-              ),
-            if (coMakerCount > 0 && dialableCount > coMakerCount)
-              const SizedBox(width: 8),
-            if (dialableCount > 0)
-              SizedBox(
-                width: 80,
-                child: ElevatedButton.icon(
-                  onPressed: () => _startAutoDialing(false),
-                  icon: const Icon(Icons.phone, size: 14),
-                  label: Text(
-                    '($dialableCount)',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 8,
-                    ),
-                  ),
-                ),
-              ),
-            if (dialableCount == 0)
-              Text(
-                'No dialable contacts',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -258,13 +272,27 @@ class _FrontEndViewState extends State<FrontEndView> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
       appBar: AppBar(
-        title: const Text(
-          'Frontend Bucket',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Frontend Bucket',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            Text(
+              'Early intervention accounts for customer retention',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blue.shade100,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
         ),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         elevation: 2,
+        toolbarHeight: 70,
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
@@ -295,220 +323,227 @@ class _FrontEndViewState extends State<FrontEndView> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Builder(
-          builder: (context) {
-            if (_isLoading) {
-              return const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                ),
-              );
-            }
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        color: Colors.blue,
+        child: SafeArea(child: _buildBody(theme)),
+      ),
+    );
+  }
 
-            if (_errorMessage != null) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 64,
-                      color: Colors.red.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(
-                        _errorMessage!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: _initializeData,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return Column(
-              children: [
-                // Optimized Statistics Card (2 rows layout)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        children: [
-                          // First row
-                          Row(
-                            children: [
-                              _buildStatisticTile(
-                                Icons.list_alt,
-                                'Total',
-                                '${_statistics['total_loans'] ?? 0}',
-                                iconColor: Colors.blue.shade400,
-                              ),
-                              _buildStatisticTile(
-                                Icons.phone,
-                                'Dialable',
-                                '${_statistics['dialable_count'] ?? 0}',
-                                iconColor: Colors.blue.shade400,
-                              ),
-                              _buildStatisticTile(
-                                Icons.people,
-                                'Co-Maker',
-                                '${_statistics['co_maker_phone_count'] ?? 0}',
-                                iconColor: Colors.blue.shade400,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // Second row
-                          Row(
-                            children: [
-                              _buildStatisticTile(
-                                Icons.person,
-                                'Borrower',
-                                '${_statistics['borrower_phone_count'] ?? 0}',
-                                iconColor: Colors.blue.shade400,
-                              ),
-                              _buildStatisticTile(
-                                Icons.block,
-                                'No Phone',
-                                '${_statistics['no_phone_count'] ?? 0}',
-                                iconColor: Colors.blue.shade400,
-                              ),
-                              if ((_statistics['co_maker_percentage'] ?? 0) > 0)
-                                _buildStatisticTile(
-                                  Icons.percent,
-                                  'Co-Maker %',
-                                  '${_statistics['co_maker_percentage']}%',
-                                  iconColor: Colors.blue.shade400,
-                                )
-                              else
-                                const Expanded(
-                                  child: SizedBox(),
-                                ), // Empty space if no percentage
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Auto Dialing Buttons
-                _buildAutoDialingButtons(),
-
-                // Filter Toggle
-                if (_loans.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: SwitchListTile(
-                            title: const Text('Prioritize Co-Maker Phones'),
-                            subtitle: Text(
-                              _prioritizeCoMaker
-                                  ? 'Co-maker numbers shown first'
-                                  : 'Original order',
-                            ),
-                            value: _prioritizeCoMaker,
-                            onChanged: (value) {
-                              setState(() {
-                                _prioritizeCoMaker = value;
-                                _loadLoansData();
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // Loans List
-                Expanded(
-                  child: _loans.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.assignment_outlined,
-                                size: 64,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No frontend accounts assigned',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.separated(
-                          itemCount: _loans.length,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          separatorBuilder: (context, idx) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final loan = _loans[index];
-                            return AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                              child: _buildLoanCard(loan, index),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            );
-          },
+  Widget _buildCompactButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required int count,
+    required Color color,
+    required String label,
+  }) {
+    return SizedBox(
+      height: 32,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12),
+            const SizedBox(width: 4),
+            Text(
+              '$label ($count)',
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBody(ThemeData theme) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'Error',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _initializeData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Search Bar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search by Loan ID, Account Number, or Borrower Name',
+              prefixIcon: const Icon(Icons.search, color: Colors.blue),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.blue),
+                      onPressed: () {
+                        _searchController.clear();
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.blue.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.blue.shade500, width: 2),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.blue.shade300),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ),
+
+        // Simplified Statistics Card
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  _buildStatisticTile(
+                    Icons.contacts,
+                    'Total Contacts',
+                    '${_statistics['total_loans'] ?? 0}',
+                    iconColor: Colors.blue.shade400,
+                  ),
+                  _buildStatisticTile(
+                    Icons.phone_in_talk,
+                    'Called',
+                    '0', // TODO: Integrate with dialer state
+                    iconColor: Colors.green.shade400,
+                  ),
+                  _buildStatisticTile(
+                    Icons.pending,
+                    'Pending',
+                    '${_statistics['total_loans'] ?? 0}', // For now, all are pending
+                    iconColor: Colors.blue.shade400,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Auto Dialing Buttons
+        _buildAutoDialingButtons(),
+
+        // Loans List
+        Expanded(
+          child: _filteredLoans.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _searchQuery.isNotEmpty
+                            ? Icons.search_off
+                            : Icons.assignment_outlined,
+                        size: 64,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _searchQuery.isNotEmpty
+                            ? 'No accounts found matching "$_searchQuery"'
+                            : 'No frontend accounts assigned',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: _filteredLoans.length,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  separatorBuilder: (context, idx) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final loan = _filteredLoans[index];
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      child: _buildLoanCard(loan, index),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
@@ -590,7 +625,7 @@ class _FrontEndViewState extends State<FrontEndView> {
             children: [
               Expanded(
                 child: Text(
-                  borrower?.borrowerName ?? 'Unknown Borrower',
+                  (borrower?.borrowerName ?? 'Unknown Borrower').toUpperCase(),
                   style: const TextStyle(fontWeight: FontWeight.bold),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -749,7 +784,10 @@ class _FrontEndViewState extends State<FrontEndView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
+              Text(
+                name.toUpperCase(),
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
               if (phone != null && phone.isNotEmpty)
                 Text(
                   phone,
