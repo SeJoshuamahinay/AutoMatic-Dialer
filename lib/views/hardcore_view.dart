@@ -703,9 +703,10 @@ class _HardcoreViewState extends State<HardcoreView> {
           title: Row(
             children: [
               Expanded(
-                child: _buildHighlightedText(
+                child: Text(
                   (borrower?.borrowerName ?? 'Unknown Borrower').toUpperCase(),
-                  _searchQuery,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (!loan.hasValidPhone)
@@ -725,9 +726,9 @@ class _HardcoreViewState extends State<HardcoreView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (loan.loanAccountNumber != null)
-                _buildHighlightedText(
+                Text(
                   'Account: ${loan.loanAccountNumber}',
-                  _searchQuery,
+                  style: const TextStyle(fontSize: 13),
                 ),
               if (loan.outstandingBalance != null)
                 Text(
@@ -883,53 +884,6 @@ class _HardcoreViewState extends State<HardcoreView> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildHighlightedText(String text, String searchQuery) {
-    if (searchQuery.isEmpty) {
-      return Text(text);
-    }
-
-    final String lowerText = text.toLowerCase();
-    final String lowerQuery = searchQuery.toLowerCase();
-
-    if (!lowerText.contains(lowerQuery)) {
-      return Text(text);
-    }
-
-    final List<TextSpan> spans = [];
-    int start = 0;
-
-    while (start < text.length) {
-      final int index = lowerText.indexOf(lowerQuery, start);
-      if (index == -1) {
-        spans.add(TextSpan(text: text.substring(start)));
-        break;
-      }
-
-      if (index > start) {
-        spans.add(TextSpan(text: text.substring(start, index)));
-      }
-
-      spans.add(
-        TextSpan(
-          text: text.substring(index, index + searchQuery.length),
-          style: const TextStyle(
-            backgroundColor: Colors.yellow,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      );
-
-      start = index + searchQuery.length;
-    }
-
-    return RichText(
-      text: TextSpan(
-        style: DefaultTextStyle.of(context).style,
-        children: spans,
-      ),
     );
   }
 }

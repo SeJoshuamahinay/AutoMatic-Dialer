@@ -521,26 +521,64 @@ class _FrontEndViewState extends State<FrontEndView> {
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: Colors.grey[600],
                         ),
+                        textAlign: TextAlign.center,
                       ),
+                      if (_searchQuery.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () {
+                            _searchController.clear();
+                          },
+                          child: const Text(
+                            'Clear search',
+                            style: TextStyle(color: Colors.blue),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 )
-              : ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: _filteredLoans.length,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  separatorBuilder: (context, idx) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final loan = _filteredLoans[index];
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      child: _buildLoanCard(loan, index),
-                    );
-                  },
+              : Column(
+                  children: [
+                    // Search Results Count
+                    if (_searchQuery.isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        color: Colors.blue.shade50,
+                        child: Text(
+                          'Found ${_filteredLoans.length} of ${_loans.length} accounts',
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    // Loans List
+                    Expanded(
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: _filteredLoans.length,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        separatorBuilder: (context, idx) =>
+                            const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final loan = _filteredLoans[index];
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            child: _buildLoanCard(loan, index),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
         ),
       ],
