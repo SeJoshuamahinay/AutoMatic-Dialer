@@ -462,7 +462,7 @@ class _DialerViewState extends State<DialerView> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _presenter.stopDialing(),
+                    onPressed: () => _showStopDialingDialog(),
                     icon: const Icon(Icons.stop),
                     label: const Text('Stop Queue'),
                     style: OutlinedButton.styleFrom(
@@ -501,7 +501,7 @@ class _DialerViewState extends State<DialerView> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  _presenter.stopDialing();
+                  _showStopDialingDialog();
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
                       builder: (_) => const MainNavigationView(),
