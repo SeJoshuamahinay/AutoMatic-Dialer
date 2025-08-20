@@ -100,5 +100,13 @@ class BreakSession extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, type, startTime, endTime, date, reason, isActive];
+  List<Object?> get props => [
+    id,
+    type,
+    startTime,
+    endTime,
+    date,
+    reason,
+    isActive,
+  ];
 }

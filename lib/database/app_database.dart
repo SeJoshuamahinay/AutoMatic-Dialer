@@ -38,10 +38,10 @@ class AppDatabase extends _$AppDatabase {
         if (from < 2) {
           // Add the breakDate column to existing break sessions table
           await m.addColumn(breakSessions, breakSessions.breakDate);
-          
+
           // Update existing break sessions to have a breakDate based on breakStart
           await customStatement(
-            'UPDATE break_sessions SET break_date = DATE(break_start) WHERE break_date IS NULL'
+            'UPDATE break_sessions SET break_date = DATE(break_start) WHERE break_date IS NULL',
           );
         }
       },

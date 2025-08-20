@@ -19,7 +19,11 @@ class BreakService {
       await _endActiveBreakSessions(userId);
 
       final now = DateTime.now();
-      final breakDate = DateTime(now.year, now.month, now.day); // Date without time
+      final breakDate = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ); // Date without time
       final breakId = await _database.startBreakSession(
         BreakSessionsCompanion(
           breakStart: Value(now),
