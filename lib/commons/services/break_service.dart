@@ -78,7 +78,13 @@ class BreakService {
           type: _mapStringToBreakType(activeBreak.breakType),
           startTime: activeBreak.breakStart,
           endTime: activeBreak.breakEnd,
-          date: activeBreak.breakDate,
+          date:
+              activeBreak.breakDate ??
+              DateTime(
+                activeBreak.breakStart.year,
+                activeBreak.breakStart.month,
+                activeBreak.breakStart.day,
+              ), // Fallback if breakDate is null
           reason: activeBreak.breakReason,
           isActive: activeBreak.breakEnd == null,
         );
@@ -101,7 +107,12 @@ class BreakService {
         ..where(
           (session) =>
               session.userId.equals(userId) &
-              session.breakDate.equals(targetDate),
+              (session.breakDate.equals(targetDate) |
+                  session.breakDate.isNull() &
+                      session.breakStart.isBetweenValues(
+                        targetDate,
+                        targetDate.add(const Duration(days: 1)),
+                      )),
         )
         ..orderBy([(session) => OrderingTerm.desc(session.breakStart)]);
 
@@ -113,7 +124,13 @@ class BreakService {
           type: _mapStringToBreakType(break_.breakType),
           startTime: break_.breakStart,
           endTime: break_.breakEnd,
-          date: break_.breakDate,
+          date:
+              break_.breakDate ??
+              DateTime(
+                break_.breakStart.year,
+                break_.breakStart.month,
+                break_.breakStart.day,
+              ), // Fallback if breakDate is null
           reason: break_.breakReason,
           isActive: break_.breakEnd == null,
         );

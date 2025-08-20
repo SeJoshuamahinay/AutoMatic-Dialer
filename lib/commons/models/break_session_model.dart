@@ -86,14 +86,21 @@ class BreakSession extends Equatable {
   }
 
   factory BreakSession.fromJson(Map<String, dynamic> json) {
+    final startTime = DateTime.parse(json['startTime'] as String);
     return BreakSession(
       id: json['id'] as int?,
       type: BreakType.values[json['type'] as int],
-      startTime: DateTime.parse(json['startTime'] as String),
+      startTime: startTime,
       endTime: json['endTime'] != null
           ? DateTime.parse(json['endTime'] as String)
           : null,
-      date: DateTime.parse(json['date'] as String),
+      date: json['date'] != null
+          ? DateTime.parse(json['date'] as String)
+          : DateTime(
+              startTime.year,
+              startTime.month,
+              startTime.day,
+            ), // Fallback to date from startTime
       reason: json['reason'] as String?,
       isActive: json['isActive'] as bool? ?? true,
     );

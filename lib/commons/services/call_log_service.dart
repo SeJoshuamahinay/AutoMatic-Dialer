@@ -441,7 +441,7 @@ class CallLogService {
     final breakSession = BreakSessionsCompanion.insert(
       userId: userId,
       breakStart: now,
-      breakDate: DateTime(now.year, now.month, now.day),
+      breakDate: Value(DateTime(now.year, now.month, now.day)),
       breakType: breakType,
       breakReason: Value(reason),
       agentName: Value(agentName),

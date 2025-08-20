@@ -36,8 +36,10 @@ class AppDatabase extends _$AppDatabase {
       onUpgrade: (Migrator m, int from, int to) async {
         // Handle database migrations here when schema changes
         if (from < 2) {
-          // Add the breakDate column to existing break sessions table
-          await m.addColumn(breakSessions, breakSessions.breakDate);
+          // Add the breakDate column as nullable
+          await customStatement(
+            'ALTER TABLE break_sessions ADD COLUMN break_date INTEGER',
+          );
 
           // Update existing break sessions to have a breakDate based on breakStart
           await customStatement(
