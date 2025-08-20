@@ -1,15 +1,10 @@
 import 'package:lenderly_dialer/views/main_navigation_view.dart';
-import 'package:lenderly_dialer/commons/repositories/test_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:ui';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'blocs/dialer/dialer_bloc.dart';
-import 'blocs/auth/auth_bloc.dart';
-import 'blocs/break/break_bloc.dart';
+import 'blocs/bloc_providers.dart';
 import 'commons/services/environment_config.dart';
 import 'commons/services/shared_prefs_storage_service.dart';
-import 'commons/services/login_service.dart';
 import 'views/auth_wrapper.dart';
 import 'views/login_view.dart';
 
@@ -85,23 +80,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Initialize dependencies
-    // Initialize TestRepository for testing purposes
-    // This can be used to mock API calls or database interactions in tests
-    // Initialize LoginService
-    final baseRepository = TestRepository();
-    final loginService = LoginService();
-
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<DialerBloc>(
-          create: (context) => DialerBloc(repository: baseRepository),
-        ),
-        BlocProvider<AuthBloc>(
-          create: (context) => AuthBloc(loginService: loginService),
-        ),
-        BlocProvider<BreakBloc>(create: (context) => BreakBloc()),
-      ],
+    return BlocProviders.create(
       child: MaterialApp(
         title: 'Dialer App',
         debugShowCheckedModeBanner: false,

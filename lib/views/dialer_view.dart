@@ -18,6 +18,7 @@ class _DialerViewState extends State<DialerView> {
   late DialerPresenter _presenter;
   final TextEditingController _noteController = TextEditingController();
   CallStatus? _selectedCallStatus;
+  int? _currentContactId; // Track current contact to reset status
 
   @override
   void initState() {
@@ -173,6 +174,16 @@ class _DialerViewState extends State<DialerView> {
   }
 
   Widget _buildCallEndedView(state.CallEnded callEndedState) {
+    // Reset call status selection when a new contact is loaded
+    if (_currentContactId != callEndedState.contact.id) {
+      _currentContactId = callEndedState.contact.id;
+      _selectedCallStatus = null;
+      // Also clear the note controller for the new contact
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _noteController.clear();
+      });
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -289,7 +300,12 @@ class _DialerViewState extends State<DialerView> {
                                     _presenter.saveNote(
                                       callEndedState.contact.id!,
                                       '',
+                                      CallStatus.called,
                                     );
+                                    // Reset selection for next call
+                                    setState(() {
+                                      _selectedCallStatus = null;
+                                    });
                                   },
                                   icon: const Icon(Icons.skip_next),
                                   label: const Text('Skip Note'),
@@ -304,13 +320,25 @@ class _DialerViewState extends State<DialerView> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: ElevatedButton.icon(
-                                  onPressed: () {
+                                  onPressed: () async {
+                                    // Check if status is selected
+                                    if (!_isStatusSelected()) {
+                                      final shouldContinue =
+                                          await _promptForStatusSelection();
+                                      if (!shouldContinue) return;
+                                    }
+
                                     final note = _noteController.text.trim();
                                     _presenter.saveNote(
                                       callEndedState.contact.id!,
                                       note,
+                                      _selectedCallStatus ?? CallStatus.pending,
                                     );
                                     _noteController.clear();
+                                    // Reset selection for next call
+                                    setState(() {
+                                      _selectedCallStatus = null;
+                                    });
                                   },
                                   icon: const Icon(Icons.save),
                                   label: const Text('Save & Continue'),
@@ -631,7 +659,7 @@ class _DialerViewState extends State<DialerView> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          contact.status.toUpperCase(),
+                          contact.status!.toUpperCase(),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -740,16 +768,60 @@ class _DialerViewState extends State<DialerView> {
         ],
       ),
       selected: isSelected,
-      onSelected: (selected) {
-        setState(() {
-          _selectedCallStatus = selected ? statusForLabel : null;
-        });
-      },
+      onSelected: (selected) =>
+          _handleStatusSelection(selected, statusForLabel),
       selectedColor: color,
       backgroundColor: color.withValues(alpha: 0.1),
       side: BorderSide(color: color.withValues(alpha: 0.3)),
       showCheckmark: false,
     );
+  }
+
+  /// Handles the selection of call status chips
+  Future<void> _handleStatusSelection(
+    bool selected,
+    CallStatus? statusForLabel,
+  ) async {
+    setState(() {
+      _selectedCallStatus = selected ? statusForLabel : null;
+    });
+
+    // Add a small delay to ensure the UI updates properly
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    // Debug print to verify selection
+    print('Status selected: $_selectedCallStatus');
+  }
+
+  /// Validates if a call status has been selected
+  bool _isStatusSelected() {
+    return _selectedCallStatus != null;
+  }
+
+  /// Shows a dialog prompting user to select a call status
+  Future<bool> _promptForStatusSelection() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Select Call Status'),
+              content: const Text(
+                'Please select a call status before saving the note.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
   void _showStopDialingDialog() {
