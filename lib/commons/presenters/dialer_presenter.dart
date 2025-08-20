@@ -1,3 +1,5 @@
+import 'package:lenderly_dialer/commons/models/call_log_model.dart';
+
 import '../models/call_contact_model.dart';
 import '../models/loan_models.dart';
 import '../../blocs/dialer/dialer_bloc.dart';
@@ -30,8 +32,8 @@ class DialerPresenter {
   }
 
   // Save note for a contact
-  void saveNote(int contactId, String note) {
-    _dialerBloc.add(SaveNote(contactId: contactId, note: note));
+  void saveNote(int contactId, String note, CallStatus status) {
+    _dialerBloc.add(SaveNote(contactId: contactId, note: note, status: status));
   }
 
   // Refresh numbers from API

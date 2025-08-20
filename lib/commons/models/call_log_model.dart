@@ -53,7 +53,7 @@ extension CallStatusExtension on CallStatus {
 
 class CallLog extends Equatable {
   final int? id;
-  final int contactId;
+  final int? loanID;
   final DateTime callTime;
   final Duration? callDuration;
   final CallStatus status;
@@ -61,7 +61,7 @@ class CallLog extends Equatable {
 
   const CallLog({
     this.id,
-    required this.contactId,
+    required this.loanID,
     required this.callTime,
     this.callDuration,
     required this.status,
@@ -70,7 +70,7 @@ class CallLog extends Equatable {
 
   CallLog copyWith({
     int? id,
-    int? contactId,
+    int? loanId,
     DateTime? callTime,
     Duration? callDuration,
     CallStatus? status,
@@ -78,7 +78,7 @@ class CallLog extends Equatable {
   }) {
     return CallLog(
       id: id ?? this.id,
-      contactId: contactId ?? this.contactId,
+      loanID: loanId ?? loanID,
       callTime: callTime ?? this.callTime,
       callDuration: callDuration ?? this.callDuration,
       status: status ?? this.status,
@@ -89,7 +89,7 @@ class CallLog extends Equatable {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'contactId': contactId,
+      'loanID': loanID,
       'callTime': callTime.toIso8601String(),
       'callDuration': callDuration?.inSeconds,
       'status': status.value,
@@ -100,7 +100,7 @@ class CallLog extends Equatable {
   factory CallLog.fromJson(Map<String, dynamic> json) {
     return CallLog(
       id: json['id'] as int?,
-      contactId: json['contactId'] as int,
+      loanID: json['loanID'] as int,
       callTime: DateTime.parse(json['callTime'] as String),
       callDuration: json['callDuration'] != null
           ? Duration(seconds: json['callDuration'] as int)
@@ -113,7 +113,7 @@ class CallLog extends Equatable {
   @override
   List<Object?> get props => [
     id,
-    contactId,
+    loanID,
     callTime,
     callDuration,
     status,

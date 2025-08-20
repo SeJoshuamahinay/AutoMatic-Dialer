@@ -7,7 +7,7 @@ class CallContact extends Equatable {
   final String borrowerPhone;
   final String? coMakerName;
   final String? coMakerPhone;
-  final String status;
+  final String? status;
   final String? bucket;
   final String? note;
 
@@ -18,7 +18,7 @@ class CallContact extends Equatable {
     required this.borrowerPhone,
     this.coMakerName,
     this.coMakerPhone,
-    this.status = 'pending',
+    this.status,
     this.note,
     this.bucket,
   });

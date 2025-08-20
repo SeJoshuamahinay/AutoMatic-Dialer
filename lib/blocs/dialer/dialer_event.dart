@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:lenderly_dialer/commons/models/call_log_model.dart';
 import '../../commons/models/loan_models.dart';
 
 abstract class DialerEvent extends Equatable {
@@ -23,11 +24,16 @@ class StopDialing extends DialerEvent {
 class SaveNote extends DialerEvent {
   final int contactId;
   final String note;
+  final CallStatus status;
 
-  const SaveNote({required this.contactId, required this.note});
+  const SaveNote({
+    required this.contactId,
+    required this.note,
+    required this.status,
+  });
 
   @override
-  List<Object?> get props => [contactId, note];
+  List<Object?> get props => [contactId, note, status];
 }
 
 class FetchNumbers extends DialerEvent {
