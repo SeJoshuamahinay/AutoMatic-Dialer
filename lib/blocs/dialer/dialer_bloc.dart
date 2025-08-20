@@ -304,12 +304,23 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
     Emitter<state.DialerState> emit,
   ) async {
     try {
+      print(
+        '📝 Saving note for contact ${event.contactId} with status: ${event.status.value}',
+      );
+
       // Update the contact with the note in repository
-      await _repository.updateContact(event.contactId, 'called', event.note);
+      await _repository.updateContact(
+        event.contactId,
+        event.status.value,
+        event.note,
+      );
 
       // Update call log in database with note
       if (_currentCallLogId != null && _currentCallStartTime != null) {
         try {
+          print(
+            '📞 Updating call log $_currentCallLogId with status: ${event.status.value}',
+          );
           final callDuration = DateTime.now().difference(
             _currentCallStartTime!,
           );
@@ -320,16 +331,21 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
             notes: event.note,
             outcome: 'completed_with_note',
           );
+          print('✅ Successfully updated call log $_currentCallLogId');
         } catch (e) {
-          print('Failed to update call log with note: $e');
+          print('❌ Failed to update call log with note: $e');
           // Continue even if database update fails
         }
+      } else {
+        print(
+          '⚠️ No current call log ID or start time found: callLogId=$_currentCallLogId, startTime=$_currentCallStartTime',
+        );
       }
 
       if (_currentIndex >= _currentQueue.length) return;
 
       final contact = _currentQueue[_currentIndex].copyWith(
-        status: 'called',
+        status: event.status.value,
         note: event.note,
       );
 

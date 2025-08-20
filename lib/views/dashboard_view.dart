@@ -104,9 +104,10 @@ class _DashboardViewState extends State<DashboardView> {
                   const SizedBox(height: 16),
                   _buildCallStatusBreakdown(state),
                   const SizedBox(height: 16),
+                  _buildRecentCallLogs(state),
+                  const SizedBox(height: 16),
                   _buildBreakTimeAnalysis(state),
                   const SizedBox(height: 16),
-                  _buildRecentCallLogs(state),
                   // Show database seeder in debug mode only
                   if (kDebugMode && _isInTestEnvironment) ...[
                     DatabaseSeederWidget(
@@ -1399,8 +1400,19 @@ class _DashboardViewState extends State<DashboardView> {
           _getCallStatusIcon(callLog.status),
           color: _getCallStatusColor(callLog.status),
         ),
-        title: Text('Loan #${callLog.loanID}'),
-        subtitle: Text(_formatTime(callLog.callTime)),
+        title: Text(
+          callLog.borrowerName?.isNotEmpty == true
+              ? callLog.borrowerName!
+              : 'Loan #${callLog.loanID}',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Loan #${callLog.loanID}'),
+            Text(_formatTime(callLog.callTime)),
+          ],
+        ),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
@@ -1425,6 +1437,10 @@ class _DashboardViewState extends State<DashboardView> {
               children: [
                 _buildDetailRow('Call ID', callLog.id?.toString() ?? 'N/A'),
                 _buildDetailRow('Loan ID', callLog.loanID?.toString() ?? 'N/A'),
+                if (callLog.borrowerName?.isNotEmpty == true)
+                  _buildDetailRow('Borrower Name', callLog.borrowerName!),
+                if (callLog.borrowerPhone?.isNotEmpty == true)
+                  _buildDetailRow('Phone Number', callLog.borrowerPhone!),
                 _buildDetailRow(
                   'Call Time',
                   _formatFullDateTime(callLog.callTime),

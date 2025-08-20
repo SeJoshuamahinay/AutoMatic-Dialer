@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-import '../../db/app_database.dart';
+import '../../database/app_database.dart';
 import '../models/call_contact_model.dart';
 import '../models/call_log_model.dart';
 
@@ -114,8 +114,11 @@ class CallLogService {
   }) async {
     _ensureInitialized();
 
+    print(
+      '🔄 Updating call log $callLogId with status: ${finalStatus.value}, notes: $finalNotes',
+    );
+
     final companion = CallLogsCompanion(
-      id: Value(callLogId),
       callEndTime: Value(endTime),
       callDurationSeconds: Value(durationSeconds),
       callStatus: Value(finalStatus.value),
@@ -125,7 +128,9 @@ class CallLogService {
       updatedAt: Value(DateTime.now()),
     );
 
-    return await _database.updateCallLog(callLogId, companion);
+    final result = await _database.updateCallLog(callLogId, companion);
+    print('📊 Database update result: $result');
+    return result;
   }
 
   // ===== CONTACT MANAGEMENT =====
@@ -359,17 +364,14 @@ class CallLogService {
       logs = logs.where((log) => log.bucket == bucket).toList();
     }
 
-    // Limit results
-    if (logs.length > limit) {
-      logs = logs.take(limit).toList();
-    }
-
     // Convert to CallLog models
     return logs
         .map(
           (entry) => CallLog(
             id: entry.id,
             loanID: entry.contactId ?? 0,
+            borrowerName: entry.borrowerName,
+            borrowerPhone: entry.borrowerPhone,
             callTime: entry.callStartTime,
             callDuration: entry.callDurationSeconds != null
                 ? Duration(seconds: entry.callDurationSeconds!)

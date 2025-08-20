@@ -50,8 +50,16 @@ class AppDatabase extends _$AppDatabase {
       into(callLogs).insert(callLog);
 
   /// Update an existing call log entry
-  Future<bool> updateCallLog(int id, CallLogsCompanion callLog) =>
-      update(callLogs).replace(callLog.copyWith(id: Value(id)));
+  Future<bool> updateCallLog(int id, CallLogsCompanion callLog) async {
+    print(
+      '💾 Database: Updating call log $id with companion: ${callLog.toString()}',
+    );
+    final result = await (update(
+      callLogs,
+    )..where((log) => log.id.equals(id))).write(callLog);
+    print('💾 Database: Update affected $result rows');
+    return result > 0;
+  }
 
   /// Get all call logs for a specific date range
   Future<List<CallLogEntry>> getCallLogsByDateRange(

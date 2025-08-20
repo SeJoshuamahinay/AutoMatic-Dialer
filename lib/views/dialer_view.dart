@@ -284,6 +284,16 @@ class _DialerViewState extends State<DialerView> {
                                       Icons.call_end,
                                       Colors.red,
                                     ),
+                                    _buildStatusChip(
+                                      'Called',
+                                      Icons.phone,
+                                      Colors.blue,
+                                    ),
+                                    _buildStatusChip(
+                                      'Pending',
+                                      Icons.pending,
+                                      Colors.purple,
+                                    ),
                                   ],
                                 ),
                               ],
@@ -747,6 +757,12 @@ class _DialerViewState extends State<DialerView> {
         break;
       case 'Hang Up':
         statusForLabel = CallStatus.hangUp;
+        break;
+      case 'Called':
+        statusForLabel = CallStatus.called;
+        break;
+      case 'Pending':
+        statusForLabel = CallStatus.pending;
         break;
     }
 

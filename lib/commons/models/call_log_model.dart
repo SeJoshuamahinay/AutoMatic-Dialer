@@ -54,6 +54,8 @@ extension CallStatusExtension on CallStatus {
 class CallLog extends Equatable {
   final int? id;
   final int? loanID;
+  final String? borrowerName;
+  final String? borrowerPhone;
   final DateTime callTime;
   final Duration? callDuration;
   final CallStatus status;
@@ -62,6 +64,8 @@ class CallLog extends Equatable {
   const CallLog({
     this.id,
     required this.loanID,
+    this.borrowerName,
+    this.borrowerPhone,
     required this.callTime,
     this.callDuration,
     required this.status,
@@ -71,6 +75,8 @@ class CallLog extends Equatable {
   CallLog copyWith({
     int? id,
     int? loanId,
+    String? borrowerName,
+    String? borrowerPhone,
     DateTime? callTime,
     Duration? callDuration,
     CallStatus? status,
@@ -79,6 +85,8 @@ class CallLog extends Equatable {
     return CallLog(
       id: id ?? this.id,
       loanID: loanId ?? loanID,
+      borrowerName: borrowerName ?? this.borrowerName,
+      borrowerPhone: borrowerPhone ?? this.borrowerPhone,
       callTime: callTime ?? this.callTime,
       callDuration: callDuration ?? this.callDuration,
       status: status ?? this.status,
@@ -90,6 +98,8 @@ class CallLog extends Equatable {
     return {
       'id': id,
       'loanID': loanID,
+      'borrowerName': borrowerName,
+      'borrowerPhone': borrowerPhone,
       'callTime': callTime.toIso8601String(),
       'callDuration': callDuration?.inSeconds,
       'status': status.value,
@@ -101,6 +111,8 @@ class CallLog extends Equatable {
     return CallLog(
       id: json['id'] as int?,
       loanID: json['loanID'] as int,
+      borrowerName: json['borrowerName'] as String?,
+      borrowerPhone: json['borrowerPhone'] as String?,
       callTime: DateTime.parse(json['callTime'] as String),
       callDuration: json['callDuration'] != null
           ? Duration(seconds: json['callDuration'] as int)
@@ -114,6 +126,8 @@ class CallLog extends Equatable {
   List<Object?> get props => [
     id,
     loanID,
+    borrowerName,
+    borrowerPhone,
     callTime,
     callDuration,
     status,
