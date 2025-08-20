@@ -112,7 +112,7 @@ class _DialerViewState extends State<DialerView> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Please complete your call and return to mark it as finished',
+                    'Please complete your call and return to mark it as complete',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -270,7 +270,7 @@ class _DialerViewState extends State<DialerView> {
                                   runSpacing: 8,
                                   children: [
                                     _buildStatusChip(
-                                      'Finished',
+                                      'Complete',
                                       Icons.check_circle,
                                       Colors.green,
                                     ),
@@ -749,8 +749,8 @@ class _DialerViewState extends State<DialerView> {
   Widget _buildStatusChip(String label, IconData icon, Color color) {
     CallStatus? statusForLabel;
     switch (label) {
-      case 'Finished':
-        statusForLabel = CallStatus.finished;
+      case 'Complete':
+        statusForLabel = CallStatus.complete;
         break;
       case 'No Answer':
         statusForLabel = CallStatus.noAnswer;

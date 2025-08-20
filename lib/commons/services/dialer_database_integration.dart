@@ -193,8 +193,8 @@ class DialerDatabaseIntegration {
   /// Convert CallStatus from the existing model to the database enum
   static CallStatus mapCallStatus(String status) {
     switch (status.toLowerCase()) {
-      case 'finished':
-        return CallStatus.finished;
+      case 'complete':
+        return CallStatus.complete;
       case 'no_answer':
         return CallStatus.noAnswer;
       case 'hang_up':
@@ -280,8 +280,8 @@ extension CallStatusIntegration on CallStatus {
     switch (this) {
       case CallStatus.pending:
         return 'pending';
-      case CallStatus.finished:
-        return 'finished';
+      case CallStatus.complete:
+        return 'complete';
       case CallStatus.noAnswer:
         return 'no_answer';
       case CallStatus.hangUp:

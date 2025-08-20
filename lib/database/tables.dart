@@ -27,7 +27,7 @@ class CallLogs extends Table {
   TextColumn get callStatus => text().withLength(
     min: 1,
     max: 50,
-  )(); // pending, finished, no_answer, hang_up, called
+  )(); // pending, complete, no_answer, hang_up, called
   TextColumn get callOutcome => text().nullable().withLength(
     min: 1,
     max: 100,

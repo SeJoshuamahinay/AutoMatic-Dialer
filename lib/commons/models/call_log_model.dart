@@ -1,14 +1,14 @@
 import 'package:equatable/equatable.dart';
 
-enum CallStatus { pending, finished, noAnswer, hangUp, called }
+enum CallStatus { pending, complete, noAnswer, hangUp, called }
 
 extension CallStatusExtension on CallStatus {
   String get displayName {
     switch (this) {
       case CallStatus.pending:
         return 'Pending';
-      case CallStatus.finished:
-        return 'Finished';
+      case CallStatus.complete:
+        return 'Complete';
       case CallStatus.noAnswer:
         return 'No Answer';
       case CallStatus.hangUp:
@@ -22,8 +22,8 @@ extension CallStatusExtension on CallStatus {
     switch (this) {
       case CallStatus.pending:
         return 'pending';
-      case CallStatus.finished:
-        return 'finished';
+      case CallStatus.complete:
+        return 'complete';
       case CallStatus.noAnswer:
         return 'no_answer';
       case CallStatus.hangUp:
@@ -37,8 +37,8 @@ extension CallStatusExtension on CallStatus {
     switch (status.toLowerCase()) {
       case 'pending':
         return CallStatus.pending;
-      case 'finished':
-        return CallStatus.finished;
+      case 'complete':
+        return CallStatus.complete;
       case 'no_answer':
         return CallStatus.noAnswer;
       case 'hang_up':

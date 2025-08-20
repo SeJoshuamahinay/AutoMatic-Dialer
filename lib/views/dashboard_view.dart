@@ -355,7 +355,7 @@ class _DashboardViewState extends State<DashboardView> {
     final successfulCalls =
         stateData.dailyStats['successful_calls'] ??
         stateData.callLogs
-            .where((log) => log.status == CallStatus.finished)
+            .where((log) => log.status == CallStatus.complete)
             .length;
     final failedCalls =
         stateData.dailyStats['failed_calls'] ??
@@ -1331,7 +1331,7 @@ class _DashboardViewState extends State<DashboardView> {
     IconData statusIcon;
 
     switch (status) {
-      case CallStatus.finished:
+      case CallStatus.complete:
         statusColor = Colors.green;
         statusIcon = Icons.check_circle;
         break;
@@ -1496,7 +1496,7 @@ class _DashboardViewState extends State<DashboardView> {
 
   String _getStatusDescription(CallStatus status) {
     switch (status) {
-      case CallStatus.finished:
+      case CallStatus.complete:
         return 'Call completed successfully';
       case CallStatus.noAnswer:
         return 'No one answered the call';
@@ -1542,7 +1542,7 @@ class _DashboardViewState extends State<DashboardView> {
 
   IconData _getCallStatusIcon(CallStatus status) {
     switch (status) {
-      case CallStatus.finished:
+      case CallStatus.complete:
         return Icons.check_circle;
       case CallStatus.noAnswer:
         return Icons.phone_missed;
@@ -1557,7 +1557,7 @@ class _DashboardViewState extends State<DashboardView> {
 
   Color _getCallStatusColor(CallStatus status) {
     switch (status) {
-      case CallStatus.finished:
+      case CallStatus.complete:
         return Colors.green;
       case CallStatus.noAnswer:
         return Colors.orange;

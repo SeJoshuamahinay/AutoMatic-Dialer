@@ -35,8 +35,8 @@ void main() {
 
     test('should handle call status mapping', () {
       expect(
-        DialerDatabaseIntegration.mapCallStatus('finished'),
-        equals(CallStatus.finished),
+        DialerDatabaseIntegration.mapCallStatus('complete'),
+        equals(CallStatus.complete),
       );
       expect(
         DialerDatabaseIntegration.mapCallStatus('no_answer'),

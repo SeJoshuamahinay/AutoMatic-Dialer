@@ -70,8 +70,8 @@ class CallLogService {
       sessionId: Value(sessionId),
       userId: Value(userId),
       agentName: Value(agentName),
-      wasSuccessful: Value(status == CallStatus.finished),
-      requiresFollowUp: Value(status != CallStatus.finished),
+      wasSuccessful: Value(status == CallStatus.complete),
+      requiresFollowUp: Value(status != CallStatus.complete),
     );
 
     final logId = await _database.insertCallLog(callLog);
@@ -124,7 +124,7 @@ class CallLogService {
       callStatus: Value(finalStatus.value),
       callOutcome: Value(outcome),
       notes: Value(finalNotes),
-      wasSuccessful: Value(finalStatus == CallStatus.finished),
+      wasSuccessful: Value(finalStatus == CallStatus.complete),
       updatedAt: Value(DateTime.now()),
     );
 
@@ -536,7 +536,7 @@ class CallLogService {
     final increment = <String, int>{'totalCalls': currentStats.totalCalls + 1};
 
     switch (status) {
-      case CallStatus.finished:
+      case CallStatus.complete:
         increment['successfulCalls'] = currentStats.successfulCalls + 1;
         break;
       case CallStatus.noAnswer:

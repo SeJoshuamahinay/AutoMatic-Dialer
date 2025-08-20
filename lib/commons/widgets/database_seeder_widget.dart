@@ -232,7 +232,7 @@ class _DatabaseSeederWidgetState extends State<DatabaseSeederWidget> {
     IconData statusIcon;
 
     switch (log.status) {
-      case CallStatus.finished:
+      case CallStatus.complete:
         statusColor = Colors.green;
         statusIcon = Icons.check_circle;
         break;
@@ -383,7 +383,7 @@ class _DatabaseSeederWidgetState extends State<DatabaseSeederWidget> {
 
   String _getCallStatusDescription(CallStatus status) {
     switch (status) {
-      case CallStatus.finished:
+      case CallStatus.complete:
         return 'Call completed successfully';
       case CallStatus.noAnswer:
         return 'No one answered the call';

@@ -110,7 +110,7 @@ class DatabaseSeeder {
 
             // Update counters
             switch (status) {
-              case CallStatus.finished:
+              case CallStatus.complete:
                 successfulCalls++;
                 break;
               case CallStatus.hangUp:
@@ -221,11 +221,11 @@ class DatabaseSeeder {
   /// Get random call status
   static CallStatus _getRandomCallStatus() {
     final statuses = [
-      CallStatus.finished,
+      CallStatus.complete,
       CallStatus.noAnswer,
       CallStatus.hangUp,
-      CallStatus.finished, // Higher chance of success
-      CallStatus.finished,
+      CallStatus.complete, // Higher chance of success
+      CallStatus.complete,
     ];
     return statuses[_random.nextInt(statuses.length)];
   }
@@ -233,7 +233,7 @@ class DatabaseSeeder {
   /// Get call duration based on status
   static Duration _getCallDuration(CallStatus status) {
     switch (status) {
-      case CallStatus.finished:
+      case CallStatus.complete:
         return Duration(seconds: 120 + _random.nextInt(300)); // 2-7 minutes
       case CallStatus.hangUp:
         return Duration(seconds: 30 + _random.nextInt(90)); // 30s-2m
@@ -247,7 +247,7 @@ class DatabaseSeeder {
   /// Get call outcome based on status
   static String _getCallOutcome(CallStatus status) {
     switch (status) {
-      case CallStatus.finished:
+      case CallStatus.complete:
         final outcomes = [
           'Payment promise received',
           'Contact information updated',
@@ -270,7 +270,7 @@ class DatabaseSeeder {
     if (_random.nextInt(3) == 0) return null; // 33% chance of no notes
 
     switch (status) {
-      case CallStatus.finished:
+      case CallStatus.complete:
         final notes = [
           'Customer was cooperative and agreed to payment plan',
           'Updated contact information and verified employment',
