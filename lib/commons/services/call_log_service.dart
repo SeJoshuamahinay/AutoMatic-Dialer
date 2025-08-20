@@ -114,10 +114,6 @@ class CallLogService {
   }) async {
     _ensureInitialized();
 
-    print(
-      '🔄 Updating call log $callLogId with status: ${finalStatus.value}, notes: $finalNotes',
-    );
-
     final companion = CallLogsCompanion(
       callEndTime: Value(endTime),
       callDurationSeconds: Value(durationSeconds),
@@ -129,7 +125,6 @@ class CallLogService {
     );
 
     final result = await _database.updateCallLog(callLogId, companion);
-    print('📊 Database update result: $result');
     return result;
   }
 
@@ -442,9 +437,11 @@ class CallLogService {
   }) async {
     _ensureInitialized();
 
+    final now = DateTime.now();
     final breakSession = BreakSessionsCompanion.insert(
       userId: userId,
-      breakStart: DateTime.now(),
+      breakStart: now,
+      breakDate: DateTime(now.year, now.month, now.day),
       breakType: breakType,
       breakReason: Value(reason),
       agentName: Value(agentName),

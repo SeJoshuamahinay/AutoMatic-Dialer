@@ -34,6 +34,7 @@ class BreakSession extends Equatable {
   final BreakType type;
   final DateTime startTime;
   final DateTime? endTime;
+  final DateTime date; // Date when the break occurred (for easier filtering)
   final String? reason;
   final bool isActive;
 
@@ -42,6 +43,7 @@ class BreakSession extends Equatable {
     required this.type,
     required this.startTime,
     this.endTime,
+    required this.date,
     this.reason,
     this.isActive = true,
   });
@@ -51,6 +53,7 @@ class BreakSession extends Equatable {
     BreakType? type,
     DateTime? startTime,
     DateTime? endTime,
+    DateTime? date,
     String? reason,
     bool? isActive,
   }) {
@@ -59,6 +62,7 @@ class BreakSession extends Equatable {
       type: type ?? this.type,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
+      date: date ?? this.date,
       reason: reason ?? this.reason,
       isActive: isActive ?? this.isActive,
     );
@@ -75,6 +79,7 @@ class BreakSession extends Equatable {
       'type': type.index,
       'startTime': startTime.toIso8601String(),
       'endTime': endTime?.toIso8601String(),
+      'date': date.toIso8601String(),
       'reason': reason,
       'isActive': isActive,
     };
@@ -88,11 +93,12 @@ class BreakSession extends Equatable {
       endTime: json['endTime'] != null
           ? DateTime.parse(json['endTime'] as String)
           : null,
+      date: DateTime.parse(json['date'] as String),
       reason: json['reason'] as String?,
       isActive: json['isActive'] as bool? ?? true,
     );
   }
 
   @override
-  List<Object?> get props => [id, type, startTime, endTime, reason, isActive];
+  List<Object?> get props => [id, type, startTime, endTime, date, reason, isActive];
 }

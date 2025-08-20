@@ -154,6 +154,7 @@ class BreakSessions extends Table {
   // Break details
   DateTimeColumn get breakStart => dateTime()();
   DateTimeColumn get breakEnd => dateTime().nullable()();
+  DateTimeColumn get breakDate => dateTime()(); // Date when the break occurred (for easier querying)
   IntColumn get breakDurationMinutes => integer().nullable()();
 
   // Break type

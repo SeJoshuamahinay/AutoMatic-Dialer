@@ -1,42 +1,42 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../commons/models/break_session_model.dart';
+import '../../commons/services/break_service.dart';
 import 'break_event.dart';
 import 'break_state.dart';
 
 class BreakBloc extends Bloc<BreakEvent, BreakState> {
-  final List<BreakSession> _breakHistory = [];
-  BreakSession? _activeBreak;
+  final BreakService _breakService;
+  final int _userId;
+  final String? _agentName;
 
-  BreakBloc() : super(const BreakInitial()) {
+  BreakBloc({
+    required BreakService breakService,
+    required int userId,
+    String? agentName,
+  }) : _breakService = breakService,
+       _userId = userId,
+       _agentName = agentName,
+       super(const BreakInitial()) {
     on<StartBreak>(_onStartBreak);
     on<EndBreak>(_onEndBreak);
     on<LoadBreakHistory>(_onLoadBreakHistory);
-    on<ClearBreakHistory>(_onClearBreakHistory);
+    on<LoadBreakStatistics>(_onLoadBreakStatistics);
+    on<CheckActiveBreak>(_onCheckActiveBreak);
   }
 
   void _onStartBreak(StartBreak event, Emitter<BreakState> emit) async {
     try {
       emit(const BreakLoading());
 
-      // End any existing break first
-      if (_activeBreak != null) {
-        final endedBreak = _activeBreak!.copyWith(
-          endTime: DateTime.now(),
-          isActive: false,
-        );
-        _breakHistory.add(endedBreak);
-      }
-
-      // Start new break
-      _activeBreak = BreakSession(
-        id: DateTime.now().millisecondsSinceEpoch,
+      final breakSession = await _breakService.startBreakSession(
         type: event.type,
-        startTime: DateTime.now(),
+        userId: _userId,
         reason: event.reason,
-        isActive: true,
+        agentName: _agentName,
       );
 
-      emit(BreakActive(_activeBreak!));
+      final history = await _breakService.getTodaysBreakSessions(_userId);
+      emit(BreakActive(breakSession, breakHistory: history));
     } catch (e) {
       emit(BreakError('Failed to start break: ${e.toString()}'));
     }
@@ -46,16 +46,14 @@ class BreakBloc extends Bloc<BreakEvent, BreakState> {
     try {
       emit(const BreakLoading());
 
-      if (_activeBreak != null) {
-        final endedBreak = _activeBreak!.copyWith(
-          endTime: DateTime.now(),
-          isActive: false,
-        );
-        _breakHistory.add(endedBreak);
-        _activeBreak = null;
-      }
+      final endedBreak = await _breakService.endActiveBreakSession(_userId);
 
-      emit(BreakInactive(List.from(_breakHistory)));
+      if (endedBreak != null) {
+        final history = await _breakService.getTodaysBreakSessions(_userId);
+        emit(BreakInactive(history));
+      } else {
+        emit(const BreakError('No active break session to end'));
+      }
     } catch (e) {
       emit(BreakError('Failed to end break: ${e.toString()}'));
     }
@@ -68,64 +66,93 @@ class BreakBloc extends Bloc<BreakEvent, BreakState> {
     try {
       emit(const BreakLoading());
 
-      if (_activeBreak != null) {
-        emit(BreakActive(_activeBreak!));
+      final date = event.date ?? DateTime.now();
+      final history = await _breakService.getBreakSessionsForDate(
+        _userId,
+        date,
+      );
+      final activeBreak = await _breakService.getActiveBreakSession(_userId);
+
+      if (activeBreak != null) {
+        emit(BreakActive(activeBreak, breakHistory: history));
       } else {
-        emit(BreakInactive(List.from(_breakHistory)));
+        emit(BreakInactive(history));
       }
     } catch (e) {
       emit(BreakError('Failed to load break history: ${e.toString()}'));
     }
   }
 
-  void _onClearBreakHistory(
-    ClearBreakHistory event,
+  void _onLoadBreakStatistics(
+    LoadBreakStatistics event,
     Emitter<BreakState> emit,
   ) async {
     try {
       emit(const BreakLoading());
-      _breakHistory.clear();
 
-      if (_activeBreak != null) {
-        emit(BreakActive(_activeBreak!));
-      } else {
-        emit(const BreakInactive([]));
-      }
+      final date = event.date ?? DateTime.now();
+      final history = await _breakService.getBreakSessionsForDate(
+        _userId,
+        date,
+      );
+      final statistics = await _breakService.getBreakStatisticsForDate(
+        _userId,
+        date,
+      );
+      final activeBreak = await _breakService.getActiveBreakSession(_userId);
+
+      emit(
+        BreakStatisticsLoaded(
+          breakHistory: history,
+          statistics: statistics,
+          activeBreak: activeBreak,
+        ),
+      );
     } catch (e) {
-      emit(BreakError('Failed to clear break history: ${e.toString()}'));
+      emit(BreakError('Failed to load break statistics: ${e.toString()}'));
     }
   }
 
-  // Getters for current break info
-  bool get isOnBreak => _activeBreak != null;
-  BreakSession? get currentBreak => _activeBreak;
-  List<BreakSession> get breakHistory => List.from(_breakHistory);
+  void _onCheckActiveBreak(
+    CheckActiveBreak event,
+    Emitter<BreakState> emit,
+  ) async {
+    try {
+      emit(const BreakLoading());
 
-  // Get total break time for today
-  Duration get todaysTotalBreakTime {
-    final today = DateTime.now();
-    final todaysBreaks = _breakHistory
-        .where(
-          (breakSession) =>
-              breakSession.startTime.day == today.day &&
-              breakSession.startTime.month == today.month &&
-              breakSession.startTime.year == today.year,
-        )
-        .toList();
+      final activeBreak = await _breakService.getActiveBreakSession(_userId);
+      final history = await _breakService.getTodaysBreakSessions(_userId);
 
-    Duration total = Duration.zero;
-    for (final breakSession in todaysBreaks) {
-      total += breakSession.actualDuration;
+      if (activeBreak != null) {
+        emit(BreakActive(activeBreak, breakHistory: history));
+      } else {
+        emit(BreakInactive(history));
+      }
+    } catch (e) {
+      emit(BreakError('Failed to check active break: ${e.toString()}'));
     }
+  }
 
-    // Add current break if active
-    if (_activeBreak != null &&
-        _activeBreak!.startTime.day == today.day &&
-        _activeBreak!.startTime.month == today.month &&
-        _activeBreak!.startTime.year == today.year) {
-      total += _activeBreak!.actualDuration;
+  bool get isOnBreak {
+    final currentState = state;
+    return currentState is BreakActive;
+  }
+
+  BreakSession? get currentBreak {
+    final currentState = state;
+    if (currentState is BreakActive) {
+      return currentState.activeBreak;
+    } else if (currentState is BreakStatisticsLoaded) {
+      return currentState.activeBreak;
     }
+    return null;
+  }
 
-    return total;
+  Duration? get currentBreakDuration {
+    final activeBreak = currentBreak;
+    if (activeBreak != null && activeBreak.isActive) {
+      return activeBreak.actualDuration;
+    }
+    return null;
   }
 }

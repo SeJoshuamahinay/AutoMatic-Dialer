@@ -25,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration {
@@ -35,10 +35,15 @@ class AppDatabase extends _$AppDatabase {
       },
       onUpgrade: (Migrator m, int from, int to) async {
         // Handle database migrations here when schema changes
-        // For example:
-        // if (from < 2) {
-        //   await m.addColumn(callLogs, callLogs.newColumn);
-        // }
+        if (from < 2) {
+          // Add the breakDate column to existing break sessions table
+          await m.addColumn(breakSessions, breakSessions.breakDate);
+          
+          // Update existing break sessions to have a breakDate based on breakStart
+          await customStatement(
+            'UPDATE break_sessions SET break_date = DATE(break_start) WHERE break_date IS NULL'
+          );
+        }
       },
     );
   }

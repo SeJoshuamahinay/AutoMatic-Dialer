@@ -3647,6 +3647,17 @@ class $BreakSessionsTable extends BreakSessions
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _breakDateMeta = const VerificationMeta(
+    'breakDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> breakDate = GeneratedColumn<DateTime>(
+    'break_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _breakDurationMinutesMeta =
       const VerificationMeta('breakDurationMinutes');
   @override
@@ -3739,6 +3750,7 @@ class $BreakSessionsTable extends BreakSessions
     id,
     breakStart,
     breakEnd,
+    breakDate,
     breakDurationMinutes,
     breakType,
     breakReason,
@@ -3775,6 +3787,14 @@ class $BreakSessionsTable extends BreakSessions
         _breakEndMeta,
         breakEnd.isAcceptableOrUnknown(data['break_end']!, _breakEndMeta),
       );
+    }
+    if (data.containsKey('break_date')) {
+      context.handle(
+        _breakDateMeta,
+        breakDate.isAcceptableOrUnknown(data['break_date']!, _breakDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_breakDateMeta);
     }
     if (data.containsKey('break_duration_minutes')) {
       context.handle(
@@ -3852,6 +3872,10 @@ class $BreakSessionsTable extends BreakSessions
         DriftSqlType.dateTime,
         data['${effectivePrefix}break_end'],
       ),
+      breakDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}break_date'],
+      )!,
       breakDurationMinutes: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}break_duration_minutes'],
@@ -3894,6 +3918,7 @@ class BreakSessionEntry extends DataClass
   final int id;
   final DateTime breakStart;
   final DateTime? breakEnd;
+  final DateTime breakDate;
   final int? breakDurationMinutes;
   final String breakType;
   final String? breakReason;
@@ -3905,6 +3930,7 @@ class BreakSessionEntry extends DataClass
     required this.id,
     required this.breakStart,
     this.breakEnd,
+    required this.breakDate,
     this.breakDurationMinutes,
     required this.breakType,
     this.breakReason,
@@ -3921,6 +3947,7 @@ class BreakSessionEntry extends DataClass
     if (!nullToAbsent || breakEnd != null) {
       map['break_end'] = Variable<DateTime>(breakEnd);
     }
+    map['break_date'] = Variable<DateTime>(breakDate);
     if (!nullToAbsent || breakDurationMinutes != null) {
       map['break_duration_minutes'] = Variable<int>(breakDurationMinutes);
     }
@@ -3946,6 +3973,7 @@ class BreakSessionEntry extends DataClass
       breakEnd: breakEnd == null && nullToAbsent
           ? const Value.absent()
           : Value(breakEnd),
+      breakDate: Value(breakDate),
       breakDurationMinutes: breakDurationMinutes == null && nullToAbsent
           ? const Value.absent()
           : Value(breakDurationMinutes),
@@ -3973,6 +4001,7 @@ class BreakSessionEntry extends DataClass
       id: serializer.fromJson<int>(json['id']),
       breakStart: serializer.fromJson<DateTime>(json['breakStart']),
       breakEnd: serializer.fromJson<DateTime?>(json['breakEnd']),
+      breakDate: serializer.fromJson<DateTime>(json['breakDate']),
       breakDurationMinutes: serializer.fromJson<int?>(
         json['breakDurationMinutes'],
       ),
@@ -3991,6 +4020,7 @@ class BreakSessionEntry extends DataClass
       'id': serializer.toJson<int>(id),
       'breakStart': serializer.toJson<DateTime>(breakStart),
       'breakEnd': serializer.toJson<DateTime?>(breakEnd),
+      'breakDate': serializer.toJson<DateTime>(breakDate),
       'breakDurationMinutes': serializer.toJson<int?>(breakDurationMinutes),
       'breakType': serializer.toJson<String>(breakType),
       'breakReason': serializer.toJson<String?>(breakReason),
@@ -4005,6 +4035,7 @@ class BreakSessionEntry extends DataClass
     int? id,
     DateTime? breakStart,
     Value<DateTime?> breakEnd = const Value.absent(),
+    DateTime? breakDate,
     Value<int?> breakDurationMinutes = const Value.absent(),
     String? breakType,
     Value<String?> breakReason = const Value.absent(),
@@ -4016,6 +4047,7 @@ class BreakSessionEntry extends DataClass
     id: id ?? this.id,
     breakStart: breakStart ?? this.breakStart,
     breakEnd: breakEnd.present ? breakEnd.value : this.breakEnd,
+    breakDate: breakDate ?? this.breakDate,
     breakDurationMinutes: breakDurationMinutes.present
         ? breakDurationMinutes.value
         : this.breakDurationMinutes,
@@ -4035,6 +4067,7 @@ class BreakSessionEntry extends DataClass
           ? data.breakStart.value
           : this.breakStart,
       breakEnd: data.breakEnd.present ? data.breakEnd.value : this.breakEnd,
+      breakDate: data.breakDate.present ? data.breakDate.value : this.breakDate,
       breakDurationMinutes: data.breakDurationMinutes.present
           ? data.breakDurationMinutes.value
           : this.breakDurationMinutes,
@@ -4057,6 +4090,7 @@ class BreakSessionEntry extends DataClass
           ..write('id: $id, ')
           ..write('breakStart: $breakStart, ')
           ..write('breakEnd: $breakEnd, ')
+          ..write('breakDate: $breakDate, ')
           ..write('breakDurationMinutes: $breakDurationMinutes, ')
           ..write('breakType: $breakType, ')
           ..write('breakReason: $breakReason, ')
@@ -4073,6 +4107,7 @@ class BreakSessionEntry extends DataClass
     id,
     breakStart,
     breakEnd,
+    breakDate,
     breakDurationMinutes,
     breakType,
     breakReason,
@@ -4088,6 +4123,7 @@ class BreakSessionEntry extends DataClass
           other.id == this.id &&
           other.breakStart == this.breakStart &&
           other.breakEnd == this.breakEnd &&
+          other.breakDate == this.breakDate &&
           other.breakDurationMinutes == this.breakDurationMinutes &&
           other.breakType == this.breakType &&
           other.breakReason == this.breakReason &&
@@ -4101,6 +4137,7 @@ class BreakSessionsCompanion extends UpdateCompanion<BreakSessionEntry> {
   final Value<int> id;
   final Value<DateTime> breakStart;
   final Value<DateTime?> breakEnd;
+  final Value<DateTime> breakDate;
   final Value<int?> breakDurationMinutes;
   final Value<String> breakType;
   final Value<String?> breakReason;
@@ -4112,6 +4149,7 @@ class BreakSessionsCompanion extends UpdateCompanion<BreakSessionEntry> {
     this.id = const Value.absent(),
     this.breakStart = const Value.absent(),
     this.breakEnd = const Value.absent(),
+    this.breakDate = const Value.absent(),
     this.breakDurationMinutes = const Value.absent(),
     this.breakType = const Value.absent(),
     this.breakReason = const Value.absent(),
@@ -4124,6 +4162,7 @@ class BreakSessionsCompanion extends UpdateCompanion<BreakSessionEntry> {
     this.id = const Value.absent(),
     required DateTime breakStart,
     this.breakEnd = const Value.absent(),
+    required DateTime breakDate,
     this.breakDurationMinutes = const Value.absent(),
     required String breakType,
     this.breakReason = const Value.absent(),
@@ -4132,12 +4171,14 @@ class BreakSessionsCompanion extends UpdateCompanion<BreakSessionEntry> {
     this.createdAt = const Value.absent(),
     this.callSessionId = const Value.absent(),
   }) : breakStart = Value(breakStart),
+       breakDate = Value(breakDate),
        breakType = Value(breakType),
        userId = Value(userId);
   static Insertable<BreakSessionEntry> custom({
     Expression<int>? id,
     Expression<DateTime>? breakStart,
     Expression<DateTime>? breakEnd,
+    Expression<DateTime>? breakDate,
     Expression<int>? breakDurationMinutes,
     Expression<String>? breakType,
     Expression<String>? breakReason,
@@ -4150,6 +4191,7 @@ class BreakSessionsCompanion extends UpdateCompanion<BreakSessionEntry> {
       if (id != null) 'id': id,
       if (breakStart != null) 'break_start': breakStart,
       if (breakEnd != null) 'break_end': breakEnd,
+      if (breakDate != null) 'break_date': breakDate,
       if (breakDurationMinutes != null)
         'break_duration_minutes': breakDurationMinutes,
       if (breakType != null) 'break_type': breakType,
@@ -4165,6 +4207,7 @@ class BreakSessionsCompanion extends UpdateCompanion<BreakSessionEntry> {
     Value<int>? id,
     Value<DateTime>? breakStart,
     Value<DateTime?>? breakEnd,
+    Value<DateTime>? breakDate,
     Value<int?>? breakDurationMinutes,
     Value<String>? breakType,
     Value<String?>? breakReason,
@@ -4177,6 +4220,7 @@ class BreakSessionsCompanion extends UpdateCompanion<BreakSessionEntry> {
       id: id ?? this.id,
       breakStart: breakStart ?? this.breakStart,
       breakEnd: breakEnd ?? this.breakEnd,
+      breakDate: breakDate ?? this.breakDate,
       breakDurationMinutes: breakDurationMinutes ?? this.breakDurationMinutes,
       breakType: breakType ?? this.breakType,
       breakReason: breakReason ?? this.breakReason,
@@ -4198,6 +4242,9 @@ class BreakSessionsCompanion extends UpdateCompanion<BreakSessionEntry> {
     }
     if (breakEnd.present) {
       map['break_end'] = Variable<DateTime>(breakEnd.value);
+    }
+    if (breakDate.present) {
+      map['break_date'] = Variable<DateTime>(breakDate.value);
     }
     if (breakDurationMinutes.present) {
       map['break_duration_minutes'] = Variable<int>(breakDurationMinutes.value);
@@ -4229,6 +4276,7 @@ class BreakSessionsCompanion extends UpdateCompanion<BreakSessionEntry> {
           ..write('id: $id, ')
           ..write('breakStart: $breakStart, ')
           ..write('breakEnd: $breakEnd, ')
+          ..write('breakDate: $breakDate, ')
           ..write('breakDurationMinutes: $breakDurationMinutes, ')
           ..write('breakType: $breakType, ')
           ..write('breakReason: $breakReason, ')
@@ -7690,6 +7738,7 @@ typedef $$BreakSessionsTableCreateCompanionBuilder =
       Value<int> id,
       required DateTime breakStart,
       Value<DateTime?> breakEnd,
+      required DateTime breakDate,
       Value<int?> breakDurationMinutes,
       required String breakType,
       Value<String?> breakReason,
@@ -7703,6 +7752,7 @@ typedef $$BreakSessionsTableUpdateCompanionBuilder =
       Value<int> id,
       Value<DateTime> breakStart,
       Value<DateTime?> breakEnd,
+      Value<DateTime> breakDate,
       Value<int?> breakDurationMinutes,
       Value<String> breakType,
       Value<String?> breakReason,
@@ -7733,6 +7783,11 @@ class $$BreakSessionsTableFilterComposer
 
   ColumnFilters<DateTime> get breakEnd => $composableBuilder(
     column: $table.breakEnd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get breakDate => $composableBuilder(
+    column: $table.breakDate,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7796,6 +7851,11 @@ class $$BreakSessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get breakDate => $composableBuilder(
+    column: $table.breakDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get breakDurationMinutes => $composableBuilder(
     column: $table.breakDurationMinutes,
     builder: (column) => ColumnOrderings(column),
@@ -7851,6 +7911,9 @@ class $$BreakSessionsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get breakEnd =>
       $composableBuilder(column: $table.breakEnd, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get breakDate =>
+      $composableBuilder(column: $table.breakDate, builder: (column) => column);
 
   GeneratedColumn<int> get breakDurationMinutes => $composableBuilder(
     column: $table.breakDurationMinutes,
@@ -7918,6 +7981,7 @@ class $$BreakSessionsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<DateTime> breakStart = const Value.absent(),
                 Value<DateTime?> breakEnd = const Value.absent(),
+                Value<DateTime> breakDate = const Value.absent(),
                 Value<int?> breakDurationMinutes = const Value.absent(),
                 Value<String> breakType = const Value.absent(),
                 Value<String?> breakReason = const Value.absent(),
@@ -7929,6 +7993,7 @@ class $$BreakSessionsTableTableManager
                 id: id,
                 breakStart: breakStart,
                 breakEnd: breakEnd,
+                breakDate: breakDate,
                 breakDurationMinutes: breakDurationMinutes,
                 breakType: breakType,
                 breakReason: breakReason,
@@ -7942,6 +8007,7 @@ class $$BreakSessionsTableTableManager
                 Value<int> id = const Value.absent(),
                 required DateTime breakStart,
                 Value<DateTime?> breakEnd = const Value.absent(),
+                required DateTime breakDate,
                 Value<int?> breakDurationMinutes = const Value.absent(),
                 required String breakType,
                 Value<String?> breakReason = const Value.absent(),
@@ -7953,6 +8019,7 @@ class $$BreakSessionsTableTableManager
                 id: id,
                 breakStart: breakStart,
                 breakEnd: breakEnd,
+                breakDate: breakDate,
                 breakDurationMinutes: breakDurationMinutes,
                 breakType: breakType,
                 breakReason: breakReason,

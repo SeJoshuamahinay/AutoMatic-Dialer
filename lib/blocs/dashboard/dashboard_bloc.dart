@@ -2,8 +2,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../commons/models/call_log_model.dart';
-import '../../commons/models/break_session_model.dart';
+// import '../../commons/models/break_session_model.dart';
 import '../../commons/services/call_log_service.dart';
+import '../../commons/services/break_service.dart';
 import '../../commons/services/shared_prefs_storage_service.dart';
 import '../../commons/services/accounts_bucket_service.dart';
 import 'dashboard_event.dart';
@@ -11,8 +12,9 @@ import 'dashboard_state.dart';
 
 class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final CallLogService _callLogService = CallLogService();
+  final BreakService _breakService;
 
-  DashboardBloc() : super(const DashboardInitial()) {
+  DashboardBloc(this._breakService) : super(const DashboardInitial()) {
     on<InitializeDashboardServices>(_onInitializeDashboardServices);
     on<LoadUserSession>(_onLoadUserSession);
     on<LoadDashboardData>(_onLoadDashboardData);
@@ -143,8 +145,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         }
       }
 
-      // Break sessions (empty for now)
-      final breakSessions = <BreakSession>[];
+      // Load break sessions for the selected date
+      // For now, use a default user ID of 1 - in real app this would come from auth
+      final breakSessions = await _breakService.getBreakSessionsForDate(
+        1,
+        event.selectedDate,
+      );
 
       // Emit successful loaded state
       emit(

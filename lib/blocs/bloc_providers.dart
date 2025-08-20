@@ -6,6 +6,8 @@ import '../blocs/break/break_bloc.dart';
 import '../blocs/dashboard/dashboard_bloc.dart';
 import '../commons/repositories/test_repository.dart';
 import '../commons/services/login_service.dart';
+import '../commons/services/break_service.dart';
+import '../database/app_database.dart';
 
 /// Centralized Bloc Providers Configuration
 ///
@@ -21,6 +23,13 @@ class BlocProviders {
     // Initialize dependencies
     final baseRepository = TestRepository();
     final loginService = LoginService();
+    final database = AppDatabase();
+    final breakService = BreakService(database);
+
+    // For now, we'll use a default user ID of 1
+    // In a real app, this would come from authentication
+    const defaultUserId = 1;
+    const defaultAgentName = 'Agent';
 
     return MultiBlocProvider(
       providers: [
@@ -35,10 +44,18 @@ class BlocProviders {
         ),
 
         // Break Bloc - Manages break session functionality
-        BlocProvider<BreakBloc>(create: (context) => BreakBloc()),
+        BlocProvider<BreakBloc>(
+          create: (context) => BreakBloc(
+            breakService: breakService,
+            userId: defaultUserId,
+            agentName: defaultAgentName,
+          ),
+        ),
 
         // Dashboard Bloc - Manages dashboard data and state
-        BlocProvider<DashboardBloc>(create: (context) => DashboardBloc()),
+        BlocProvider<DashboardBloc>(
+          create: (context) => DashboardBloc(breakService),
+        ),
       ],
       child: child,
     );
@@ -50,6 +67,12 @@ class BlocProviders {
     // Initialize dependencies
     final baseRepository = TestRepository();
     final loginService = LoginService();
+    final database = AppDatabase();
+    final breakService = BreakService(database);
+
+    // For now, we'll use a default user ID of 1
+    const defaultUserId = 1;
+    const defaultAgentName = 'Agent';
 
     return [
       BlocProvider<DialerBloc>(
@@ -58,8 +81,16 @@ class BlocProviders {
       BlocProvider<AuthBloc>(
         create: (context) => AuthBloc(loginService: loginService),
       ),
-      BlocProvider<BreakBloc>(create: (context) => BreakBloc()),
-      BlocProvider<DashboardBloc>(create: (context) => DashboardBloc()),
+      BlocProvider<BreakBloc>(
+        create: (context) => BreakBloc(
+          breakService: breakService,
+          userId: defaultUserId,
+          agentName: defaultAgentName,
+        ),
+      ),
+      BlocProvider<DashboardBloc>(
+        create: (context) => DashboardBloc(breakService),
+      ),
     ];
   }
 
@@ -68,9 +99,15 @@ class BlocProviders {
     required Widget child,
     TestRepository? mockRepository,
     LoginService? mockLoginService,
+    BreakService? mockBreakService,
   }) {
     final baseRepository = mockRepository ?? TestRepository();
     final loginService = mockLoginService ?? LoginService();
+    final database = AppDatabase();
+    final breakService = mockBreakService ?? BreakService(database);
+
+    const defaultUserId = 1;
+    const defaultAgentName = 'Test Agent';
 
     return MultiBlocProvider(
       providers: [
@@ -80,8 +117,16 @@ class BlocProviders {
         BlocProvider<AuthBloc>(
           create: (context) => AuthBloc(loginService: loginService),
         ),
-        BlocProvider<BreakBloc>(create: (context) => BreakBloc()),
-        BlocProvider<DashboardBloc>(create: (context) => DashboardBloc()),
+        BlocProvider<BreakBloc>(
+          create: (context) => BreakBloc(
+            breakService: breakService,
+            userId: defaultUserId,
+            agentName: defaultAgentName,
+          ),
+        ),
+        BlocProvider<DashboardBloc>(
+          create: (context) => DashboardBloc(breakService),
+        ),
       ],
       child: child,
     );

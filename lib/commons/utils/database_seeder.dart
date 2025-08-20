@@ -20,7 +20,6 @@ class DatabaseSeeder {
   /// Clear all existing data
   static Future<void> clearAllData() async {
     await _callLogService.clearAllData();
-    print('🗑️ Cleared all existing database data');
   }
 
   /// Seed the database with comprehensive test data
@@ -33,13 +32,6 @@ class DatabaseSeeder {
     try {
       await initialize();
 
-      print('🌱 Starting database seeding...');
-      print('📊 Parameters:');
-      print('   - User ID: $userId');
-      print('   - Agent Name: $agentName');
-      print('   - Days of history: $daysOfHistory');
-      print('   - Calls per day: $callsPerDay');
-
       // Generate test data for the last N days
       final now = DateTime.now();
       int totalCalls = 0;
@@ -48,10 +40,6 @@ class DatabaseSeeder {
       for (int dayOffset = 0; dayOffset < daysOfHistory; dayOffset++) {
         final date = now.subtract(Duration(days: dayOffset));
         final isToday = dayOffset == 0;
-
-        print(
-          '\n📅 Seeding data for ${_formatDate(date)}${isToday ? " (today)" : ""}',
-        );
 
         // Create 2-3 dialing sessions per day
         final sessionsPerDay = _random.nextInt(3) + 1; // 1-3 sessions
@@ -139,10 +127,6 @@ class DatabaseSeeder {
           );
 
           await _dbIntegration.endDialingSession(sessionId, stats);
-
-          print(
-            '   📞 Session ${sessionIndex + 1}: $callsInSession calls ($successfulCalls successful, ${failedCalls + noAnswerCalls + hangUpCalls} failed)',
-          );
         }
 
         // Add some break sessions for variety (randomly)
@@ -152,25 +136,9 @@ class DatabaseSeeder {
         }
       }
 
-      print('\n✅ Database seeding completed!');
-      print('📈 Summary:');
-      print('   - Total calls: $totalCalls');
-      print('   - Total sessions: $totalSessions');
-      print('   - Days seeded: $daysOfHistory');
-
       // Display today's stats
       final todaysStats = await _callLogService.getTodaysStats(userId);
-      print('\n📊 Today\'s Statistics:');
-      print('   - Total calls: ${todaysStats['total_calls']}');
-      print('   - Successful: ${todaysStats['successful_calls']}');
-      print(
-        '   - Success rate: ${todaysStats['success_rate'].toStringAsFixed(1)}%',
-      );
-      print(
-        '   - Avg duration: ${todaysStats['average_call_duration'].toStringAsFixed(1)}s',
-      );
     } catch (e) {
-      print('❌ Error during database seeding: $e');
       rethrow;
     }
   }
@@ -212,9 +180,6 @@ class DatabaseSeeder {
 
       // Create break session in database
       // Note: You may need to implement this method in your database integration
-      print(
-        '   ☕ Break: ${breakTypes[_random.nextInt(breakTypes.length)]} (${duration.inMinutes}m)',
-      );
     }
   }
 

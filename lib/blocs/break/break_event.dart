@@ -23,9 +23,23 @@ class EndBreak extends BreakEvent {
 }
 
 class LoadBreakHistory extends BreakEvent {
-  const LoadBreakHistory();
+  final DateTime? date;
+
+  const LoadBreakHistory({this.date});
+
+  @override
+  List<Object> get props => [date ?? DateTime.now()];
 }
 
-class ClearBreakHistory extends BreakEvent {
-  const ClearBreakHistory();
+class LoadBreakStatistics extends BreakEvent {
+  final DateTime? date;
+
+  const LoadBreakStatistics({this.date});
+
+  @override
+  List<Object> get props => [date ?? DateTime.now()];
+}
+
+class CheckActiveBreak extends BreakEvent {
+  const CheckActiveBreak();
 }

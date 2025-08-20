@@ -18,11 +18,12 @@ class BreakLoading extends BreakState {
 
 class BreakActive extends BreakState {
   final BreakSession activeBreak;
+  final List<BreakSession> breakHistory;
 
-  const BreakActive(this.activeBreak);
+  const BreakActive(this.activeBreak, {this.breakHistory = const []});
 
   @override
-  List<Object> get props => [activeBreak];
+  List<Object> get props => [activeBreak, breakHistory];
 }
 
 class BreakInactive extends BreakState {
@@ -32,6 +33,21 @@ class BreakInactive extends BreakState {
 
   @override
   List<Object> get props => [breakHistory];
+}
+
+class BreakStatisticsLoaded extends BreakState {
+  final List<BreakSession> breakHistory;
+  final Map<String, dynamic> statistics;
+  final BreakSession? activeBreak;
+
+  const BreakStatisticsLoaded({
+    required this.breakHistory,
+    required this.statistics,
+    this.activeBreak,
+  });
+
+  @override
+  List<Object?> get props => [breakHistory, statistics, activeBreak];
 }
 
 class BreakError extends BreakState {

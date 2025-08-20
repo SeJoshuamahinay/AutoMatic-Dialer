@@ -9,6 +9,7 @@ import '../commons/reusables/logout_dialog.dart';
 import '../commons/models/auth_models.dart';
 import '../commons/services/shared_prefs_storage_service.dart';
 import 'profile_view.dart';
+import 'break_management_view.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -188,6 +189,24 @@ class _SettingsViewState extends State<SettingsView> {
                         Colors.red,
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Add button to navigate to full break management
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _navigateToBreakManagement,
+                      icon: const Icon(Icons.manage_history),
+                      label: const Text(
+                        'Manage Breaks & History',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.purple,
+                        side: const BorderSide(color: Colors.purple),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -407,6 +426,13 @@ class _SettingsViewState extends State<SettingsView> {
   void _endBreak() {
     context.read<BreakBloc>().add(const EndBreak());
     toast(context, 'Break ended', ShowToast.error);
+  }
+
+  void _navigateToBreakManagement() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const BreakManagementView()),
+    );
   }
 
   void _showAboutDialog() {

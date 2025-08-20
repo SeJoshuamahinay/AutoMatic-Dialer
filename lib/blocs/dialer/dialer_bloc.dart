@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:lenderly_dialer/commons/repositories/base_repository.dart';
@@ -52,7 +53,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
         _agentName = userSession.fullName;
       }
     } catch (e) {
-      print('Failed to load user session: $e');
       // Keep defaults if loading fails
     }
   }
@@ -62,7 +62,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
       await _dbIntegration.initialize();
     } catch (e) {
       // Handle initialization errors gracefully
-      print('Failed to initialize database integration: $e');
     }
   }
 
@@ -163,7 +162,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
           agentName: _agentName,
         );
       } catch (e) {
-        print('Failed to start database session: $e');
         // Continue without database tracking if it fails
       }
 
@@ -220,7 +218,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
         agentName: _agentName,
       );
     } catch (e) {
-      print('Failed to log call start: $e');
       // Continue without database logging if it fails
     }
 
@@ -270,7 +267,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
             outcome: 'called',
           );
         } catch (e) {
-          print('Failed to log call end: $e');
           // Continue even if database logging fails
         }
       }
@@ -304,10 +300,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
     Emitter<state.DialerState> emit,
   ) async {
     try {
-      print(
-        '📝 Saving note for contact ${event.contactId} with status: ${event.status.value}',
-      );
-
       // Update the contact with the note in repository
       await _repository.updateContact(
         event.contactId,
@@ -318,9 +310,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
       // Update call log in database with note
       if (_currentCallLogId != null && _currentCallStartTime != null) {
         try {
-          print(
-            '📞 Updating call log $_currentCallLogId with status: ${event.status.value}',
-          );
           final callDuration = DateTime.now().difference(
             _currentCallStartTime!,
           );
@@ -331,16 +320,10 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
             notes: event.note,
             outcome: 'completed_with_note',
           );
-          print('✅ Successfully updated call log $_currentCallLogId');
         } catch (e) {
-          print('❌ Failed to update call log with note: $e');
           // Continue even if database update fails
         }
-      } else {
-        print(
-          '⚠️ No current call log ID or start time found: callLogId=$_currentCallLogId, startTime=$_currentCallStartTime',
-        );
-      }
+      } else {}
 
       if (_currentIndex >= _currentQueue.length) return;
 
@@ -390,7 +373,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
 
           await _dbIntegration.endDialingSession(_currentSessionId!, stats);
         } catch (e) {
-          print('Failed to end database session: $e');
           // Continue even if database session end fails
         }
       }
@@ -479,7 +461,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
           bucket: event.bucketType.apiValue,
         );
       } catch (e) {
-        print('Failed to start database session for bucket dialing: $e');
         // Continue without database tracking if it fails
       }
 
@@ -562,7 +543,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
           bucket: event.bucketType.apiValue,
         );
       } catch (e) {
-        print('Failed to start database session for bucket dialing: $e');
         // Continue without database tracking if it fails
       }
 
@@ -633,7 +613,6 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
           bucket: event.bucketType.apiValue,
         );
       } catch (e) {
-        print('Failed to start database session for bucket dialing: $e');
         // Continue without database tracking if it fails
       }
 
@@ -654,7 +633,8 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
     try {
       await _dbIntegration.dispose();
     } catch (e) {
-      print('Failed to dispose database integration: $e');
+      // Handle any cleanup errors gracefully
+      debugPrint('Failed to close DialerBloc database integration: $e');
     }
     return super.close();
   }
