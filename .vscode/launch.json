@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dev (local)",
+      "request": "launch",
+      "type": "dart",
+      "args": ["--dart-define=ENVIRONMENT=dev"]
+    },
+    {
+      "name": "Prod",
+      "request": "launch",
+      "type": "dart",
+      "args": ["--dart-define=ENVIRONMENT=prod"]
+    }
+  ]
+}
