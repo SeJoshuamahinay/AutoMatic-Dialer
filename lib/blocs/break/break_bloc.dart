@@ -80,7 +80,6 @@ class BreakBloc extends Bloc<BreakEvent, BreakState> {
       }
     } catch (e) {
       emit(BreakError('Failed to load break history: ${e.toString()}'));
-      print('Error loading break history: ${e.toString()}');
     }
   }
 

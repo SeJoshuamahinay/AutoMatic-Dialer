@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_event.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_state.dart';
 import 'package:lenderly_dialer/commons/services/login_service.dart';
+import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 
 /// AuthBloc handles authentication state management for the app
 /// Integrates with Sanctum token-based authentication
@@ -117,6 +118,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
 
       if (result.success) {
+        // Save the username for next login convenience (only if not using token login)
+        if (event.password.isNotEmpty) {
+          await SharedPrefsStorageService.saveLastUsername(event.identifier);
+        }
+
         // Get fresh user session after successful login
         final userSession = await _loginService.getCurrentUserSession();
 

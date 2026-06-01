@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../commons/models/call_log_model.dart';
-// import '../../commons/models/break_session_model.dart';
 import '../../commons/services/call_log_service.dart';
 import '../../commons/services/break_service.dart';
 import '../../commons/services/shared_prefs_storage_service.dart';
@@ -20,10 +20,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<LoadDashboardData>(_onLoadDashboardData);
     on<RefreshDashboardData>(_onRefreshDashboardData);
     on<ChangeDashboardDate>(_onChangeDashboardDate);
-    on<RequestLoanAssignments>(_onRequestLoanAssignments);
+    on<RefreshDialerStats>(_onRefreshDialerStats);
   }
 
-  /// Initialize dashboard services
   Future<void> _onInitializeDashboardServices(
     InitializeDashboardServices event,
     Emitter<DashboardState> emit,
@@ -33,12 +32,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       debugPrint('✅ Dashboard services initialized successfully');
     } catch (e) {
       debugPrint('❌ Error initializing dashboard services: $e');
-      // Don't emit error state here, let the dashboard continue
-      // The individual data loading will handle service errors
     }
   }
 
-  /// Load user session data
   Future<void> _onLoadUserSession(
     LoadUserSession event,
     Emitter<DashboardState> emit,
@@ -50,7 +46,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         final currentState = state as DashboardLoaded;
         emit(currentState.copyWith(userSession: userSession));
       } else {
-        // If not in loaded state, emit loaded state with minimal data
         emit(
           DashboardLoaded(
             selectedDate: DateTime.now(),
@@ -63,33 +58,27 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       }
     } catch (e) {
       debugPrint('❌ Error loading user session: $e');
-      // Don't emit error state for user session failures
     }
   }
 
-  /// Load dashboard data for a specific date
   Future<void> _onLoadDashboardData(
     LoadDashboardData event,
     Emitter<DashboardState> emit,
   ) async {
-    // Preserve current data if we're already in a loaded state
     final currentUserSession = state is DashboardLoaded
         ? (state as DashboardLoaded).userSession
         : null;
-    final currentAssignmentData = state is DashboardLoaded
-        ? (state as DashboardLoaded).assignmentData
+    final currentDialerStats = state is DashboardLoaded
+        ? (state as DashboardLoaded).dialerStats
         : null;
 
-    // Emit loading state with current data preserved
     if (state is DashboardLoaded) {
-      final currentState = state as DashboardLoaded;
-      emit(currentState.copyWith(isLoadingData: true));
+      emit((state as DashboardLoaded).copyWith(isLoadingData: true));
     } else {
       emit(const DashboardLoading());
     }
 
     try {
-      // Initialize service if needed
       try {
         await _callLogService.initialize();
       } catch (e) {
@@ -98,7 +87,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
       final userId = currentUserSession?.userId ?? 1;
 
-      // Prepare date range for selected date
       final startOfDay = DateTime(
         event.selectedDate.year,
         event.selectedDate.month,
@@ -106,7 +94,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       );
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
-      // Load call logs
       List<CallLog> callLogs = [];
       try {
         callLogs = await _callLogService
@@ -116,43 +103,29 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
               endDate: endOfDay,
             )
             .timeout(const Duration(seconds: 5));
-        debugPrint(
-          '✅ Loaded ${callLogs.length} call logs for ${event.selectedDate.toIso8601String().split('T')[0]}',
-        );
       } catch (e) {
         debugPrint('❌ Call history failed: $e');
-        callLogs = [];
       }
 
-      // Load daily stats
       Map<String, dynamic> dailyStats = {};
       try {
         dailyStats = await _callLogService
             .getStatsForDate(userId, event.selectedDate)
             .timeout(const Duration(seconds: 5));
-        debugPrint('✅ Loaded daily stats: $dailyStats');
       } catch (e) {
         debugPrint('❌ Daily stats failed: $e');
-        // Fallback to today's stats if selected date stats fail
         try {
           dailyStats = await _callLogService
               .getTodaysStats(userId)
               .timeout(const Duration(seconds: 5));
-          debugPrint('✅ Loaded fallback today stats: $dailyStats');
-        } catch (e2) {
-          debugPrint('❌ Fallback stats also failed: $e2');
-          dailyStats = {};
-        }
+        } catch (_) {}
       }
 
-      // Load break sessions for the selected date
-      // For now, use a default user ID of 1 - in real app this would come from auth
       final breakSessions = await _breakService.getBreakSessionsForDate(
         1,
         event.selectedDate,
       );
 
-      // Emit successful loaded state
       emit(
         DashboardLoaded(
           selectedDate: event.selectedDate,
@@ -160,14 +133,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           breakSessions: breakSessions,
           dailyStats: dailyStats,
           userSession: currentUserSession,
-          assignmentData: currentAssignmentData,
+          dialerStats: currentDialerStats,
           isLoadingData: false,
         ),
       );
 
-      debugPrint(
-        '✅ Dashboard data loaded successfully: ${callLogs.length} calls, stats: $dailyStats',
-      );
+      // Also load dialer stats in background
+      _loadDialerStats(currentUserSession?.userId, emit);
     } catch (e) {
       debugPrint('❌ Dashboard data loading failed: $e');
       emit(
@@ -175,13 +147,35 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           message: 'Failed to load dashboard data: $e',
           selectedDate: event.selectedDate,
           userSession: currentUserSession,
-          assignmentData: currentAssignmentData,
+          dialerStats: currentDialerStats,
         ),
       );
     }
   }
 
-  /// Refresh dashboard data
+  void _loadDialerStats(int? userId, Emitter<DashboardState> emit) async {
+    if (userId == null) return;
+    if (state is! DashboardLoaded) return;
+
+    final currentState = state as DashboardLoaded;
+    emit(currentState.copyWith(isLoadingStats: true));
+
+    try {
+      final stats = await AccountsBucketService.getDialerStats(userId.toString());
+      if (state is DashboardLoaded) {
+        emit((state as DashboardLoaded).copyWith(
+          dialerStats: stats,
+          isLoadingStats: false,
+        ));
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to load dialer stats: $e');
+      if (state is DashboardLoaded) {
+        emit((state as DashboardLoaded).copyWith(isLoadingStats: false));
+      }
+    }
+  }
+
   Future<void> _onRefreshDashboardData(
     RefreshDashboardData event,
     Emitter<DashboardState> emit,
@@ -189,11 +183,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     final selectedDate = state is DashboardLoaded
         ? (state as DashboardLoaded).selectedDate
         : DateTime.now();
-
     add(LoadDashboardData(selectedDate: selectedDate));
   }
 
-  /// Change the selected date and load data for that date
   Future<void> _onChangeDashboardDate(
     ChangeDashboardDate event,
     Emitter<DashboardState> emit,
@@ -201,88 +193,32 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     add(LoadDashboardData(selectedDate: event.selectedDate));
   }
 
-  /// Request new loan assignments
-  Future<void> _onRequestLoanAssignments(
-    RequestLoanAssignments event,
+  Future<void> _onRefreshDialerStats(
+    RefreshDialerStats event,
     Emitter<DashboardState> emit,
   ) async {
-    if (state is! DashboardLoaded) {
-      emit(
-        DashboardAssignmentError(
-          message: 'Dashboard not ready for assignment requests',
-          selectedDate: DateTime.now(),
-        ),
-      );
-      return;
+    final userId = state is DashboardLoaded
+        ? (state as DashboardLoaded).userSession?.userId
+        : null;
+    if (userId == null) return;
+
+    if (state is DashboardLoaded) {
+      emit((state as DashboardLoaded).copyWith(isLoadingStats: true));
     }
-
-    final currentState = state as DashboardLoaded;
-
-    if (currentState.userSession?.userId == null) {
-      emit(
-        DashboardAssignmentError(
-          message: 'Please log in to request account data',
-          selectedDate: currentState.selectedDate,
-          callLogs: currentState.callLogs,
-          breakSessions: currentState.breakSessions,
-          dailyStats: currentState.dailyStats,
-          userSession: currentState.userSession,
-          assignmentData: currentState.assignmentData,
-        ),
-      );
-      return;
-    }
-
-    if (currentState.isRequestingAssignments) {
-      return; // Already requesting
-    }
-
-    // Emit loading state for assignments
-    emit(currentState.copyWith(isRequestingAssignments: true));
 
     try {
-      final response = await AccountsBucketService.assignLoansToUser(
-        currentState.userSession!.userId.toString(),
-      );
-
-      if (response.success && response.data != null) {
-        emit(
-          DashboardAssignmentSuccess(
-            message:
-                'Successfully assigned ${response.data!.totalLoansCount} accounts',
-            assignmentData: response.data!,
-            selectedDate: currentState.selectedDate,
-            callLogs: currentState.callLogs,
-            breakSessions: currentState.breakSessions,
-            dailyStats: currentState.dailyStats,
-            userSession: currentState.userSession,
-          ),
-        );
-      } else {
-        emit(
-          DashboardAssignmentError(
-            message: 'Failed to assign accounts: ${response.message}',
-            selectedDate: currentState.selectedDate,
-            callLogs: currentState.callLogs,
-            breakSessions: currentState.breakSessions,
-            dailyStats: currentState.dailyStats,
-            userSession: currentState.userSession,
-            assignmentData: currentState.assignmentData,
-          ),
-        );
+      final stats = await AccountsBucketService.getDialerStats(userId.toString());
+      if (state is DashboardLoaded) {
+        emit((state as DashboardLoaded).copyWith(
+          dialerStats: stats,
+          isLoadingStats: false,
+        ));
       }
     } catch (e) {
-      emit(
-        DashboardAssignmentError(
-          message: 'Error requesting account data: $e',
-          selectedDate: currentState.selectedDate,
-          callLogs: currentState.callLogs,
-          breakSessions: currentState.breakSessions,
-          dailyStats: currentState.dailyStats,
-          userSession: currentState.userSession,
-          assignmentData: currentState.assignmentData,
-        ),
-      );
+      debugPrint('❌ Failed to refresh dialer stats: $e');
+      if (state is DashboardLoaded) {
+        emit((state as DashboardLoaded).copyWith(isLoadingStats: false));
+      }
     }
   }
 }

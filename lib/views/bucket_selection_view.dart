@@ -78,14 +78,6 @@ class BucketSelectionView extends StatelessWidget {
                   const SizedBox(height: 12),
                   _buildBucketCard(
                     context,
-                    BucketType.middlecore,
-                    Colors.orange,
-                    Icons.warning,
-                    'Mid-stage accounts',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildBucketCard(
-                    context,
                     BucketType.hardcore,
                     Colors.red,
                     Icons.priority_high,

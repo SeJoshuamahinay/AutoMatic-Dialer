@@ -163,8 +163,6 @@ class LoanRecord {
     switch (bucket?.toLowerCase()) {
       case 'frontend':
         return BucketType.frontend;
-      case 'middlecore':
-        return BucketType.middlecore;
       case 'hardcore':
         return BucketType.hardcore;
       default:
@@ -173,15 +171,13 @@ class LoanRecord {
   }
 }
 
-enum BucketType { frontend, middlecore, hardcore }
+enum BucketType { frontend, hardcore }
 
 extension BucketTypeExtension on BucketType {
   String get displayName {
     switch (this) {
       case BucketType.frontend:
         return 'Frontend';
-      case BucketType.middlecore:
-        return 'Middlecore';
       case BucketType.hardcore:
         return 'Hardcore';
     }
@@ -191,8 +187,6 @@ extension BucketTypeExtension on BucketType {
     switch (this) {
       case BucketType.frontend:
         return 'frontend';
-      case BucketType.middlecore:
-        return 'middlecore';
       case BucketType.hardcore:
         return 'hardcore';
     }
@@ -349,6 +343,72 @@ class AssignLoansRequest {
   Map<String, dynamic> toJson() {
     return {'user_id': userId};
   }
+}
+
+/// Simple flat model matching the new /api/lenderly/dialer/data/{bucket} response
+class DialerLoanRecord {
+  final int loanId;
+  final String uniqueNumber;
+  final String accountNumber;
+  final String fullName;
+  final String? phone;
+  final String? mobile;
+  final String? outstandingBalance;
+  final String? earliestDue;
+  final int arrearsDays;
+  final String bucket;
+  final String? lastLafuSubject;
+  final String? lastLafuDate;
+  final String? lastLafuLikelihood;
+
+  const DialerLoanRecord({
+    required this.loanId,
+    required this.uniqueNumber,
+    required this.accountNumber,
+    required this.fullName,
+    this.phone,
+    this.mobile,
+    this.outstandingBalance,
+    this.earliestDue,
+    required this.arrearsDays,
+    required this.bucket,
+    this.lastLafuSubject,
+    this.lastLafuDate,
+    this.lastLafuLikelihood,
+  });
+
+  factory DialerLoanRecord.fromJson(Map<String, dynamic> json) {
+    // last_lafu may be a nested object {subject, date_of_contact, recovery_likelihood}
+    // or flat fields last_lafu_subject / last_lafu_date / last_lafu_likelihood
+    final lafu = json['last_lafu'] as Map<String, dynamic>?;
+    return DialerLoanRecord(
+      loanId: ApiParser.parseInt(json['loan_id']) ?? 0,
+      uniqueNumber: json['unique_number']?.toString() ?? '',
+      accountNumber: json['account_number']?.toString() ?? '',
+      fullName: json['full_name']?.toString() ?? 'Unknown',
+      phone: json['phone']?.toString(),
+      mobile: json['mobile']?.toString(),
+      outstandingBalance: json['outstanding_balance']?.toString(),
+      earliestDue: json['earliest_due']?.toString(),
+      arrearsDays: ApiParser.parseInt(json['arrears_days']) ?? 0,
+      bucket: json['bucket']?.toString() ?? '',
+      lastLafuSubject:
+          lafu?['subject']?.toString() ?? json['last_lafu_subject']?.toString(),
+      lastLafuDate:
+          lafu?['date_of_contact']?.toString() ??
+          json['last_lafu_date']?.toString(),
+      lastLafuLikelihood:
+          lafu?['recovery_likelihood']?.toString() ??
+          json['last_lafu_likelihood']?.toString(),
+    );
+  }
+
+  bool get hasPhone => phone != null && phone!.isNotEmpty;
+  bool get hasMobile => mobile != null && mobile!.isNotEmpty;
+  bool get hasValidPhone => hasPhone || hasMobile;
+
+  /// Primary phone for calling (prefer phone, fallback to mobile)
+  String? get primaryPhone => hasPhone ? phone : (hasMobile ? mobile : null);
 }
 
 /// Utility class for safe parsing of API response values

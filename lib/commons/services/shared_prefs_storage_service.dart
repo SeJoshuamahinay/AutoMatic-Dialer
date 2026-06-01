@@ -8,6 +8,7 @@ class SharedPrefsStorageService {
   static const String _authTokenKey = 'auth_token';
   static const String _userCredentialsKey = 'user_credentials';
   static const String _rememberMeKey = 'remember_me';
+  static const String _lastUsernameKey = 'last_username';
 
   static SharedPreferences? _prefs;
 
@@ -166,11 +167,60 @@ class SharedPrefsStorageService {
     }
   }
 
-  /// Clear all authentication data
+  /// Save the last used username for convenience
+  static Future<void> saveLastUsername(String username) async {
+    try {
+      final prefs = await _instance;
+      await prefs.setString(_lastUsernameKey, username);
+
+      if (EnvironmentConfig.enableLogging) {}
+    } catch (e) {
+      if (EnvironmentConfig.enableLogging) {}
+    }
+  }
+
+  /// Get the last used username
+  static Future<String?> getLastUsername() async {
+    try {
+      final prefs = await _instance;
+      return prefs.getString(_lastUsernameKey);
+    } catch (e) {
+      if (EnvironmentConfig.enableLogging) {}
+      return null;
+    }
+  }
+
+  /// Clear the last username (called on full logout)
+  static Future<void> clearLastUsername() async {
+    try {
+      final prefs = await _instance;
+      await prefs.remove(_lastUsernameKey);
+
+      if (EnvironmentConfig.enableLogging) {}
+    } catch (e) {
+      if (EnvironmentConfig.enableLogging) {}
+    }
+  }
+
+  /// Clear all authentication data (including last username)
   static Future<void> clearAll() async {
     try {
       await clearUserSession();
       await clearUserCredentials();
+      await clearLastUsername();
+
+      if (EnvironmentConfig.enableLogging) {}
+    } catch (e) {
+      if (EnvironmentConfig.enableLogging) {}
+    }
+  }
+
+  /// Clear authentication data but preserve last username for convenience
+  static Future<void> clearAuthDataKeepUsername() async {
+    try {
+      await clearUserSession();
+      await clearUserCredentials();
+      // Note: We don't call clearLastUsername() here to preserve it
 
       if (EnvironmentConfig.enableLogging) {}
     } catch (e) {

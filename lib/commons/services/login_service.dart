@@ -348,8 +348,8 @@ class LoginService {
       // Clear in-memory storage
       _storage.clear();
 
-      // Clear persistent storage
-      await SharedPrefsStorageService.clearAll();
+      // Clear persistent storage but keep last username for convenience
+      await SharedPrefsStorageService.clearAuthDataKeepUsername();
 
       // Clear secure storage
       await _secureStorage.clearUserSession();

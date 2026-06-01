@@ -42,10 +42,10 @@ class _BucketViewState extends State<BucketView> {
           widget.bucketType,
         );
       }
-      _statistics = AccountsBucketService.getBucketStatistics(
-        widget.assignmentData,
-        widget.bucketType,
-      );
+      // _statistics = AccountsBucketService.getBucketStatistics(
+      //   widget.assignmentData,
+      //   widget.bucketType,
+      // );
     });
   }
 
@@ -408,8 +408,6 @@ class _BucketViewState extends State<BucketView> {
     switch (widget.bucketType) {
       case BucketType.frontend:
         return Colors.green;
-      case BucketType.middlecore:
-        return Colors.orange;
       case BucketType.hardcore:
         return Colors.red;
     }

@@ -32,9 +32,9 @@ class ChangeDashboardDate extends DashboardEvent {
   List<Object?> get props => [selectedDate];
 }
 
-/// Event to request new loan assignments
-class RequestLoanAssignments extends DashboardEvent {
-  const RequestLoanAssignments();
+/// Event to refresh dialer stats from the API
+class RefreshDialerStats extends DashboardEvent {
+  const RefreshDialerStats();
 }
 
 /// Event to load user session data

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
 import 'front_end_view.dart';
-import 'mid_range_view.dart';
 import 'hardcore_view.dart';
+import 'search_loan_view.dart';
 import 'dashboard_view.dart';
 import 'settings_view.dart';
 
@@ -25,9 +25,9 @@ class _MainNavigationViewState extends State<MainNavigationView> {
   List<Widget> _buildScreens() {
     return [
       const FrontEndView(),
-      const MidRangeView(),
-      const DashboardView(),
       const HardcoreView(),
+      const SearchLoanView(),
+      const DashboardView(),
       const SettingsView(),
     ];
   }
@@ -43,25 +43,25 @@ class _MainNavigationViewState extends State<MainNavigationView> {
         inactiveColorSecondary: Colors.grey,
       ),
       PersistentBottomNavBarItem(
-        icon: const Icon(Icons.phone_forwarded),
-        title: "Mid Range",
-        activeColorPrimary: Colors.orange,
+        icon: const Icon(Icons.phone_callback),
+        title: "Hardcore",
+        activeColorPrimary: Colors.red,
         inactiveColorPrimary: Colors.grey,
         activeColorSecondary: Colors.blueAccent,
+        inactiveColorSecondary: Colors.grey,
+      ),
+      PersistentBottomNavBarItem(
+        icon: const Icon(Icons.search),
+        title: "Search",
+        activeColorPrimary: Colors.indigo,
+        inactiveColorPrimary: Colors.grey,
+        activeColorSecondary: Colors.indigoAccent,
         inactiveColorSecondary: Colors.grey,
       ),
       PersistentBottomNavBarItem(
         icon: const Icon(Icons.dashboard),
         title: "Dashboard",
         activeColorPrimary: Colors.green,
-        inactiveColorPrimary: Colors.grey,
-        activeColorSecondary: Colors.blueAccent,
-        inactiveColorSecondary: Colors.grey,
-      ),
-      PersistentBottomNavBarItem(
-        icon: const Icon(Icons.phone_callback),
-        title: "Hardcore",
-        activeColorPrimary: Colors.red,
         inactiveColorPrimary: Colors.grey,
         activeColorSecondary: Colors.blueAccent,
         inactiveColorSecondary: Colors.grey,

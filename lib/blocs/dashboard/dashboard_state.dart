@@ -1,7 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../commons/models/call_log_model.dart';
 import '../../commons/models/break_session_model.dart';
-import '../../commons/models/loan_models.dart';
 import '../../commons/models/auth_models.dart';
 
 abstract class DashboardState extends Equatable {
@@ -28,9 +27,11 @@ class DashboardLoaded extends DashboardState {
   final List<BreakSession> breakSessions;
   final Map<String, dynamic> dailyStats;
   final UserSession? userSession;
-  final AssignmentData? assignmentData;
+  /// Dialer stats from GET /api/lenderly/dialer/stats
+  /// Shape: {total_loans, total_outstanding, buckets: {frontend: {count, total_outstanding}, ...}}
+  final Map<String, dynamic>? dialerStats;
   final bool isLoadingData;
-  final bool isRequestingAssignments;
+  final bool isLoadingStats;
 
   const DashboardLoaded({
     required this.selectedDate,
@@ -38,9 +39,9 @@ class DashboardLoaded extends DashboardState {
     required this.breakSessions,
     required this.dailyStats,
     this.userSession,
-    this.assignmentData,
+    this.dialerStats,
     this.isLoadingData = false,
-    this.isRequestingAssignments = false,
+    this.isLoadingStats = false,
   });
 
   @override
@@ -50,21 +51,20 @@ class DashboardLoaded extends DashboardState {
     breakSessions,
     dailyStats,
     userSession,
-    assignmentData,
+    dialerStats,
     isLoadingData,
-    isRequestingAssignments,
+    isLoadingStats,
   ];
 
-  /// Create a copy of this state with some fields changed
   DashboardLoaded copyWith({
     DateTime? selectedDate,
     List<CallLog>? callLogs,
     List<BreakSession>? breakSessions,
     Map<String, dynamic>? dailyStats,
     UserSession? userSession,
-    AssignmentData? assignmentData,
+    Map<String, dynamic>? dialerStats,
     bool? isLoadingData,
-    bool? isRequestingAssignments,
+    bool? isLoadingStats,
   }) {
     return DashboardLoaded(
       selectedDate: selectedDate ?? this.selectedDate,
@@ -72,10 +72,9 @@ class DashboardLoaded extends DashboardState {
       breakSessions: breakSessions ?? this.breakSessions,
       dailyStats: dailyStats ?? this.dailyStats,
       userSession: userSession ?? this.userSession,
-      assignmentData: assignmentData ?? this.assignmentData,
+      dialerStats: dialerStats ?? this.dialerStats,
       isLoadingData: isLoadingData ?? this.isLoadingData,
-      isRequestingAssignments:
-          isRequestingAssignments ?? this.isRequestingAssignments,
+      isLoadingStats: isLoadingStats ?? this.isLoadingStats,
     );
   }
 }
@@ -88,7 +87,7 @@ class DashboardError extends DashboardState {
   final List<BreakSession> breakSessions;
   final Map<String, dynamic> dailyStats;
   final UserSession? userSession;
-  final AssignmentData? assignmentData;
+  final Map<String, dynamic>? dialerStats;
 
   const DashboardError({
     required this.message,
@@ -97,7 +96,7 @@ class DashboardError extends DashboardState {
     this.breakSessions = const [],
     this.dailyStats = const {},
     this.userSession,
-    this.assignmentData,
+    this.dialerStats,
   });
 
   @override
@@ -108,70 +107,6 @@ class DashboardError extends DashboardState {
     breakSessions,
     dailyStats,
     userSession,
-    assignmentData,
-  ];
-}
-
-/// State when assignment request is successful
-class DashboardAssignmentSuccess extends DashboardState {
-  final String message;
-  final AssignmentData assignmentData;
-  final DateTime selectedDate;
-  final List<CallLog> callLogs;
-  final List<BreakSession> breakSessions;
-  final Map<String, dynamic> dailyStats;
-  final UserSession? userSession;
-
-  const DashboardAssignmentSuccess({
-    required this.message,
-    required this.assignmentData,
-    required this.selectedDate,
-    required this.callLogs,
-    required this.breakSessions,
-    required this.dailyStats,
-    this.userSession,
-  });
-
-  @override
-  List<Object?> get props => [
-    message,
-    assignmentData,
-    selectedDate,
-    callLogs,
-    breakSessions,
-    dailyStats,
-    userSession,
-  ];
-}
-
-/// State when assignment request fails
-class DashboardAssignmentError extends DashboardState {
-  final String message;
-  final DateTime selectedDate;
-  final List<CallLog> callLogs;
-  final List<BreakSession> breakSessions;
-  final Map<String, dynamic> dailyStats;
-  final UserSession? userSession;
-  final AssignmentData? assignmentData;
-
-  const DashboardAssignmentError({
-    required this.message,
-    required this.selectedDate,
-    this.callLogs = const [],
-    this.breakSessions = const [],
-    this.dailyStats = const {},
-    this.userSession,
-    this.assignmentData,
-  });
-
-  @override
-  List<Object?> get props => [
-    message,
-    selectedDate,
-    callLogs,
-    breakSessions,
-    dailyStats,
-    userSession,
-    assignmentData,
+    dialerStats,
   ];
 }

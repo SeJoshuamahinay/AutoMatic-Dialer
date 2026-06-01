@@ -1,28 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
+import 'package:lenderly_dialer/blocs/auth/auth_bloc.dart';
+import 'package:lenderly_dialer/blocs/auth/auth_event.dart';
+import 'package:lenderly_dialer/commons/reusables/toast.dart';
 import 'package:lenderly_dialer/commons/services/environment_config.dart';
 import '../commons/models/call_log_model.dart';
 import '../commons/models/break_session_model.dart';
-import '../commons/models/loan_models.dart';
 import '../commons/models/auth_models.dart';
-import '../commons/services/accounts_bucket_service.dart';
 import '../commons/utils/gesture_error_handler.dart';
 import '../commons/widgets/database_seeder_widget.dart';
 import '../blocs/dashboard/dashboard_bloc.dart';
 import '../blocs/dashboard/dashboard_event.dart';
 import '../blocs/dashboard/dashboard_state.dart';
-import 'front_end_view.dart';
-import 'mid_range_view.dart';
-import 'hardcore_view.dart';
 
-/// Dashboard View using Bloc pattern with BlocConsumer
-///
-/// This widget demonstrates the proper use of Bloc for state management:
-/// - BlocConsumer handles both UI updates and side effects
-/// - State is managed entirely through the DashboardBloc
-/// - Business logic is separated from UI logic
-/// - Events are dispatched to trigger state changes
 class DashboardView extends StatefulWidget {
   const DashboardView({super.key});
 
@@ -31,17 +23,16 @@ class DashboardView extends StatefulWidget {
 }
 
 class _DashboardViewState extends State<DashboardView> {
-  // Flag to detect if we're in test environment
   bool get _isInTestEnvironment => EnvironmentConfig.isDevelopment;
+
+  final _amtFmt = NumberFormat('#,##0.00', 'en_PH');
 
   @override
   void initState() {
     super.initState();
-    // Initialize dashboard using Bloc events
     _initializeDashboard();
   }
 
-  /// Initialize dashboard by dispatching events to the bloc
   void _initializeDashboard() {
     final bloc = context.read<DashboardBloc>();
     bloc
@@ -79,10 +70,7 @@ class _DashboardViewState extends State<DashboardView> {
         ],
       ),
       body: BlocConsumer<DashboardBloc, DashboardState>(
-        listener: (context, state) {
-          // Handle side effects based on state changes
-          _handleStateChange(context, state);
-        },
+        listener: (context, state) => _handleStateChange(context, state),
         builder: (context, state) {
           return RefreshIndicator(
             onRefresh: () async => _refreshData(context),
@@ -96,11 +84,7 @@ class _DashboardViewState extends State<DashboardView> {
                   const SizedBox(height: 16),
                   _buildTodaysCallStatsCard(state),
                   const SizedBox(height: 16),
-                  _buildLoanAssignmentCard(context, state),
-                  const SizedBox(height: 16),
-                  _buildOverallAnalytics(state),
-                  const SizedBox(height: 16),
-                  _buildBucketBreakdown(context, state),
+                  _buildBucketSummaryCard(context, state),
                   const SizedBox(height: 16),
                   _buildCallStatusBreakdown(state),
                   const SizedBox(height: 16),
@@ -108,7 +92,6 @@ class _DashboardViewState extends State<DashboardView> {
                   const SizedBox(height: 16),
                   _buildBreakTimeAnalysis(state),
                   const SizedBox(height: 16),
-                  // Show database seeder in debug mode only
                   if (kDebugMode && _isInTestEnvironment) ...[
                     DatabaseSeederWidget(
                       onDataChanged: () => _refreshData(context),
@@ -124,99 +107,47 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  /// Handle state changes and show appropriate UI feedback
-  void _handleStateChange(BuildContext context, DashboardState state) {
-    if (state is DashboardAssignmentSuccess) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(state.message), backgroundColor: Colors.green),
-      );
-    } else if (state is DashboardAssignmentError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(state.message), backgroundColor: Colors.red),
-      );
-    } else if (state is DashboardError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${state.message}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+  Future<void> _handleStateChange(
+      BuildContext context, DashboardState state) async {
+    if (state is DashboardError) {
+      toast(context, state.message, ShowToast.error);
+      context.read<AuthBloc>().add(AuthLogoutRequested());
     }
   }
 
-  /// Select a date and trigger data loading for that date
   Future<void> _selectDate(BuildContext context, DashboardState state) async {
     final currentDate = _getSelectedDate(state);
-
-    final DateTime? picked = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
       initialDate: currentDate,
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now(),
     );
-
-    if (picked != null && picked != currentDate) {
-      context.read<DashboardBloc>().add(
-        ChangeDashboardDate(selectedDate: picked),
-      );
+    if (picked != null && picked != currentDate && context.mounted) {
+      context.read<DashboardBloc>().add(ChangeDashboardDate(selectedDate: picked));
     }
   }
 
-  /// Refresh dashboard data
   void _refreshData(BuildContext context) {
     context.read<DashboardBloc>().add(const RefreshDashboardData());
   }
 
-  /// Request new loan assignments
-  void _requestAccountData(BuildContext context) {
-    context.read<DashboardBloc>().add(const RequestLoanAssignments());
-  }
-
-  /// Navigate to bucket view
-  void _navigateToBucket(
-    BuildContext context,
-    BucketType bucketType,
-    AssignmentData? assignmentData,
-  ) {
-    if (assignmentData == null) return;
-
-    Widget targetView;
-    switch (bucketType) {
-      case BucketType.frontend:
-        targetView = FrontEndView(assignmentData: assignmentData);
-        break;
-      case BucketType.middlecore:
-        targetView = MidRangeView(assignmentData: assignmentData);
-        break;
-      case BucketType.hardcore:
-        targetView = HardcoreView(assignmentData: assignmentData);
-        break;
-    }
-
-    GestureErrorHandler.safeNavigate(context, targetView);
-  }
-
-  /// Extract selected date from state
   DateTime _getSelectedDate(DashboardState state) {
     if (state is DashboardLoaded) return state.selectedDate;
     if (state is DashboardError) return state.selectedDate;
-    if (state is DashboardAssignmentSuccess) return state.selectedDate;
-    if (state is DashboardAssignmentError) return state.selectedDate;
     return DateTime.now();
   }
 
-  /// Extract data from state for UI building
   ({
     DateTime selectedDate,
     List<CallLog> callLogs,
     List<BreakSession> breakSessions,
     Map<String, dynamic> dailyStats,
     UserSession? userSession,
-    AssignmentData? assignmentData,
+    Map<String, dynamic>? dialerStats,
     bool isLoadingData,
-    bool isRequestingAssignments,
-  })
-  _getStateData(DashboardState state) {
+    bool isLoadingStats,
+  }) _getStateData(DashboardState state) {
     if (state is DashboardLoaded) {
       return (
         selectedDate: state.selectedDate,
@@ -224,9 +155,9 @@ class _DashboardViewState extends State<DashboardView> {
         breakSessions: state.breakSessions,
         dailyStats: state.dailyStats,
         userSession: state.userSession,
-        assignmentData: state.assignmentData,
+        dialerStats: state.dialerStats,
         isLoadingData: state.isLoadingData,
-        isRequestingAssignments: state.isRequestingAssignments,
+        isLoadingStats: state.isLoadingStats,
       );
     } else if (state is DashboardError) {
       return (
@@ -235,52 +166,28 @@ class _DashboardViewState extends State<DashboardView> {
         breakSessions: state.breakSessions,
         dailyStats: state.dailyStats,
         userSession: state.userSession,
-        assignmentData: state.assignmentData,
+        dialerStats: state.dialerStats,
         isLoadingData: false,
-        isRequestingAssignments: false,
-      );
-    } else if (state is DashboardAssignmentSuccess) {
-      return (
-        selectedDate: state.selectedDate,
-        callLogs: state.callLogs,
-        breakSessions: state.breakSessions,
-        dailyStats: state.dailyStats,
-        userSession: state.userSession,
-        assignmentData: state.assignmentData,
-        isLoadingData: false,
-        isRequestingAssignments: false,
-      );
-    } else if (state is DashboardAssignmentError) {
-      return (
-        selectedDate: state.selectedDate,
-        callLogs: state.callLogs,
-        breakSessions: state.breakSessions,
-        dailyStats: state.dailyStats,
-        userSession: state.userSession,
-        assignmentData: state.assignmentData,
-        isLoadingData: false,
-        isRequestingAssignments: false,
+        isLoadingStats: false,
       );
     } else {
-      // Default fallback for DashboardInitial or DashboardLoading
       return (
         selectedDate: DateTime.now(),
         callLogs: <CallLog>[],
         breakSessions: <BreakSession>[],
         dailyStats: <String, dynamic>{},
         userSession: null,
-        assignmentData: null,
+        dialerStats: null,
         isLoadingData: state is DashboardLoading,
-        isRequestingAssignments: false,
+        isLoadingStats: false,
       );
     }
   }
 
-  // ===================
-  // UI BUILDING METHODS
-  // ===================
+  // ==================
+  // UI BUILDERS
+  // ==================
 
-  /// Build current time card
   Widget _buildCurrentTimeCard() {
     return Card(
       elevation: 4,
@@ -307,7 +214,6 @@ class _DashboardViewState extends State<DashboardView> {
                     ? 12
                     : (now.hour > 12 ? now.hour - 12 : now.hour);
                 final amPm = now.hour >= 12 ? 'PM' : 'AM';
-
                 return Column(
                   children: [
                     Text(
@@ -320,10 +226,7 @@ class _DashboardViewState extends State<DashboardView> {
                     ),
                     Text(
                       '${_getDayName(now.weekday)}, ${_getMonthName(now.month)} ${now.day}, ${now.year}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.white70,
-                      ),
+                      style: const TextStyle(fontSize: 16, color: Colors.white70),
                     ),
                   ],
                 );
@@ -335,11 +238,10 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  /// Build today's call stats card using state data
   Widget _buildTodaysCallStatsCard(DashboardState state) {
-    final stateData = _getStateData(state);
+    final d = _getStateData(state);
 
-    if (stateData.isLoadingData) {
+    if (d.isLoadingData) {
       return Card(
         elevation: 4,
         child: Container(
@@ -349,26 +251,18 @@ class _DashboardViewState extends State<DashboardView> {
       );
     }
 
-    // Calculate stats from daily statistics or call logs
     final totalCalls =
-        stateData.dailyStats['total_calls'] ?? stateData.callLogs.length;
+        d.dailyStats['total_calls'] ?? d.callLogs.length;
     final successfulCalls =
-        stateData.dailyStats['successful_calls'] ??
-        stateData.callLogs
-            .where((log) => log.status == CallStatus.complete)
-            .length;
+        d.dailyStats['successful_calls'] ??
+        d.callLogs.where((log) => log.status == CallStatus.complete).length;
     final failedCalls =
-        stateData.dailyStats['failed_calls'] ??
-        stateData.callLogs
-            .where((log) => log.status == CallStatus.hangUp)
-            .length;
+        d.dailyStats['failed_calls'] ??
+        d.callLogs.where((log) => log.status == CallStatus.hangUp).length;
     final noAnswerCalls =
-        stateData.dailyStats['no_answer_calls'] ??
-        stateData.callLogs
-            .where((log) => log.status == CallStatus.noAnswer)
-            .length;
-    final totalBreakTime =
-        stateData.dailyStats['total_break_time_minutes'] ?? 0;
+        d.dailyStats['no_answer_calls'] ??
+        d.callLogs.where((log) => log.status == CallStatus.noAnswer).length;
+    final totalBreakTime = d.dailyStats['total_break_time_minutes'] ?? 0;
 
     return Card(
       elevation: 4,
@@ -386,10 +280,10 @@ class _DashboardViewState extends State<DashboardView> {
         child: Column(
           children: [
             Row(
-              children: [
-                const Icon(Icons.phone, color: Colors.white, size: 32),
-                const SizedBox(width: 12),
-                const Text(
+              children: const [
+                Icon(Icons.phone, color: Colors.white, size: 32),
+                SizedBox(width: 12),
+                Text(
                   "Today's Call Activity",
                   style: TextStyle(
                     fontSize: 20,
@@ -403,20 +297,12 @@ class _DashboardViewState extends State<DashboardView> {
             Row(
               children: [
                 Expanded(
-                  child: _buildStatItem(
-                    'Total Calls',
-                    totalCalls.toString(),
-                    Icons.call,
-                    Colors.white,
-                  ),
+                  child: _statItem('Total Calls', totalCalls.toString(),
+                      Icons.call, Colors.white),
                 ),
                 Expanded(
-                  child: _buildStatItem(
-                    'Successful',
-                    successfulCalls.toString(),
-                    Icons.check_circle,
-                    Colors.green.shade200,
-                  ),
+                  child: _statItem('Successful', successfulCalls.toString(),
+                      Icons.check_circle, Colors.green.shade200),
                 ),
               ],
             ),
@@ -424,31 +310,19 @@ class _DashboardViewState extends State<DashboardView> {
             Row(
               children: [
                 Expanded(
-                  child: _buildStatItem(
-                    'Failed/Hung Up',
-                    failedCalls.toString(),
-                    Icons.call_end,
-                    Colors.red.shade200,
-                  ),
+                  child: _statItem('Failed/Hung Up', failedCalls.toString(),
+                      Icons.call_end, Colors.red.shade200),
                 ),
                 Expanded(
-                  child: _buildStatItem(
-                    'No Answer',
-                    noAnswerCalls.toString(),
-                    Icons.phone_missed,
-                    Colors.orange.shade200,
-                  ),
+                  child: _statItem('No Answer', noAnswerCalls.toString(),
+                      Icons.phone_missed, Colors.orange.shade200),
                 ),
               ],
             ),
             if (totalBreakTime > 0) ...[
               const SizedBox(height: 16),
-              _buildStatItem(
-                'Break Time',
-                '${totalBreakTime}m',
-                Icons.timer,
-                Colors.yellow.shade200,
-              ),
+              _statItem('Break Time', '${totalBreakTime}m', Icons.timer,
+                  Colors.yellow.shade200),
             ],
           ],
         ),
@@ -456,366 +330,14 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  /// Build loan assignment card using state data
-  Widget _buildLoanAssignmentCard(BuildContext context, DashboardState state) {
-    final stateData = _getStateData(state);
+  Widget _buildBucketSummaryCard(BuildContext context, DashboardState state) {
+    final d = _getStateData(state);
+    final stats = d.dialerStats;
 
     return Card(
       elevation: 4,
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.assignment, color: Colors.blue, size: 28),
-                const SizedBox(width: 12),
-                const Text(
-                  'Account Assignments',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                if (stateData.isRequestingAssignments)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (stateData.assignmentData == null) ...[
-              // No assignments yet
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.cloud_download,
-                      color: Colors.blue,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'No accounts assigned yet',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Request new account assignments to start dialing',
-                      style: TextStyle(color: Colors.grey[600]),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: stateData.isRequestingAssignments
-                            ? null
-                            : () => _requestAccountData(context),
-                        icon: Icon(
-                          stateData.isRequestingAssignments
-                              ? Icons.hourglass_top
-                              : Icons.download,
-                        ),
-                        label: Text(
-                          stateData.isRequestingAssignments
-                              ? 'Requesting...'
-                              : 'Request Assignments',
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              // Show assignment data
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.green.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildAssignmentStat(
-                          'Total Loans',
-                          '${stateData.assignmentData!.totalLoansCount}',
-                          Icons.folder,
-                          Colors.blue,
-                        ),
-                        _buildAssignmentStat(
-                          'Dialable',
-                          '${stateData.assignmentData!.dialableLoans.length}',
-                          Icons.phone,
-                          Colors.green,
-                        ),
-                        _buildAssignmentStat(
-                          'Assigned',
-                          _formatDateTime(stateData.assignmentData!.assignedAt),
-                          Icons.schedule,
-                          Colors.orange,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Bucket navigation
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildBucketButton(
-                      'Frontend',
-                      stateData.assignmentData!.getCountForBucket(
-                        BucketType.frontend,
-                      ),
-                      stateData.assignmentData!.getDialableCountForBucket(
-                        BucketType.frontend,
-                      ),
-                      Colors.green,
-                      Icons.trending_up,
-                      BucketType.frontend,
-                      context,
-                      stateData.assignmentData,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildBucketButton(
-                      'Middlecore',
-                      stateData.assignmentData!.getCountForBucket(
-                        BucketType.middlecore,
-                      ),
-                      stateData.assignmentData!.getDialableCountForBucket(
-                        BucketType.middlecore,
-                      ),
-                      Colors.orange,
-                      Icons.warning,
-                      BucketType.middlecore,
-                      context,
-                      stateData.assignmentData,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildBucketButton(
-                      'Hardcore',
-                      stateData.assignmentData!.getCountForBucket(
-                        BucketType.hardcore,
-                      ),
-                      stateData.assignmentData!.getDialableCountForBucket(
-                        BucketType.hardcore,
-                      ),
-                      Colors.red,
-                      Icons.priority_high,
-                      BucketType.hardcore,
-                      context,
-                      stateData.assignmentData,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Refresh button
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: stateData.isRequestingAssignments
-                      ? null
-                      : () => _requestAccountData(context),
-                  icon: const Icon(Icons.refresh),
-                  label: Text(
-                    stateData.isRequestingAssignments
-                        ? 'Requesting...'
-                        : 'Refresh Assignments',
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build overall analytics section
-  Widget _buildOverallAnalytics(DashboardState state) {
-    final stateData = _getStateData(state);
-
-    if (stateData.assignmentData == null) {
-      return Card(
-        elevation: 2,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.analytics, color: Colors.purple, size: 28),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Overall Analytics',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.grey, size: 48),
-                    SizedBox(height: 12),
-                    Text(
-                      'Analytics will be available once you have account assignments',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Calculate real statistics from assignment data
-    final frontendStats = AccountsBucketService.getBucketStatistics(
-      stateData.assignmentData!,
-      BucketType.frontend,
-    );
-    final midRangeStats = AccountsBucketService.getBucketStatistics(
-      stateData.assignmentData!,
-      BucketType.middlecore,
-    );
-    final hardcoreStats = AccountsBucketService.getBucketStatistics(
-      stateData.assignmentData!,
-      BucketType.hardcore,
-    );
-
-    final totalContacts = stateData.assignmentData!.totalLoansCount;
-    final totalDialable =
-        (frontendStats['dialable_count'] ?? 0) +
-        (midRangeStats['dialable_count'] ?? 0) +
-        (hardcoreStats['dialable_count'] ?? 0);
-    final totalCoMakers =
-        (frontendStats['co_maker_phone_count'] ?? 0) +
-        (midRangeStats['co_maker_phone_count'] ?? 0) +
-        (hardcoreStats['co_maker_phone_count'] ?? 0);
-    final totalBorrowers =
-        (frontendStats['borrower_phone_count'] ?? 0) +
-        (midRangeStats['borrower_phone_count'] ?? 0) +
-        (hardcoreStats['borrower_phone_count'] ?? 0);
-
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.analytics, color: Colors.purple, size: 28),
-                const SizedBox(width: 12),
-                const Text(
-                  'Overall Analytics',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildAnalyticsCard(
-                    title: 'Total Contacts',
-                    value: totalContacts.toString(),
-                    icon: Icons.people,
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildAnalyticsCard(
-                    title: 'Dialable',
-                    value: totalDialable.toString(),
-                    icon: Icons.phone_enabled,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildAnalyticsCard(
-                    title: 'Co-makers',
-                    value: totalCoMakers.toString(),
-                    icon: Icons.person_add,
-                    color: Colors.orange,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildAnalyticsCard(
-                    title: 'Borrowers',
-                    value: totalBorrowers.toString(),
-                    icon: Icons.person,
-                    color: Colors.purple,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build bucket breakdown section
-  Widget _buildBucketBreakdown(BuildContext context, DashboardState state) {
-    final stateData = _getStateData(state);
-
-    if (stateData.assignmentData == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -823,87 +345,92 @@ class _DashboardViewState extends State<DashboardView> {
               children: [
                 const Icon(Icons.folder_open, color: Colors.indigo, size: 28),
                 const SizedBox(width: 12),
-                const Text(
-                  'Bucket Breakdown',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                const Expanded(
+                  child: Text(
+                    'Loan Portfolio',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ),
+                if (d.isLoadingStats)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  GestureErrorHandler.safeIconButton(
+                    icon: const Icon(Icons.refresh, size: 20),
+                    onPressed: () => context
+                        .read<DashboardBloc>()
+                        .add(const RefreshDialerStats()),
+                    tooltip: 'Refresh Stats',
+                  ),
               ],
             ),
             const SizedBox(height: 16),
-            Column(
-              children: [
-                _buildBucketBreakdownRow(
-                  'Frontend',
-                  AccountsBucketService.getBucketStatistics(
-                    stateData.assignmentData!,
-                    BucketType.frontend,
+            if (stats == null && !d.isLoadingStats) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Loading portfolio data...',
+                    style: TextStyle(color: Colors.grey),
                   ),
-                  Colors.green,
-                  Icons.trending_up,
-                  BucketType.frontend,
-                  context,
-                  stateData.assignmentData,
                 ),
-                const SizedBox(height: 12),
-                _buildBucketBreakdownRow(
-                  'Middlecore',
-                  AccountsBucketService.getBucketStatistics(
-                    stateData.assignmentData!,
-                    BucketType.middlecore,
-                  ),
-                  Colors.orange,
-                  Icons.warning,
-                  BucketType.middlecore,
-                  context,
-                  stateData.assignmentData,
+              ),
+            ] else if (stats != null) ...[
+              // Overall summary
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: Colors.indigo.withValues(alpha: 0.2)),
                 ),
-                const SizedBox(height: 12),
-                _buildBucketBreakdownRow(
-                  'Hardcore',
-                  AccountsBucketService.getBucketStatistics(
-                    stateData.assignmentData!,
-                    BucketType.hardcore,
-                  ),
-                  Colors.red,
-                  Icons.priority_high,
-                  BucketType.hardcore,
-                  context,
-                  stateData.assignmentData,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _portfolioStat(
+                      'Total Loans',
+                      '${stats['total_loans'] ?? 0}',
+                      Icons.folder,
+                      Colors.indigo,
+                    ),
+                    _portfolioStat(
+                      'Total Balance',
+                      '₱${_amtFmt.format((stats['total_outstanding'] as num?)?.toDouble() ?? 0.0)}',
+                      Icons.account_balance_wallet,
+                      Colors.deepPurple,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build call status breakdown section
-  Widget _buildCallStatusBreakdown(DashboardState state) {
-    final stateData = _getStateData(state);
-
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.assessment, color: Colors.teal, size: 28),
-                const SizedBox(width: 12),
-                const Text(
-                  'Call Status Breakdown',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (stateData.isLoadingData)
-              const Center(child: CircularProgressIndicator())
-            else ...[
-              ..._buildCallStatusRows(stateData),
+              ),
+              const SizedBox(height: 12),
+              // Bucket breakdown
+              _buildBucketRow(
+                context,
+                'Frontend',
+                (stats['buckets']?['frontend'] as Map<String, dynamic>?) ?? {},
+                Colors.green,
+                Icons.trending_up,
+              ),
+              const SizedBox(height: 8),
+              _buildBucketRow(
+                context,
+                'Hardcore',
+                (stats['buckets']?['hardcore'] as Map<String, dynamic>?) ?? {},
+                Colors.red,
+                Icons.priority_high,
+              ),
+            ] else ...[
+              const Center(child: CircularProgressIndicator()),
             ],
           ],
         ),
@@ -911,296 +438,176 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  /// Build break time analysis section
-  Widget _buildBreakTimeAnalysis(DashboardState state) {
-    final stateData = _getStateData(state);
-
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.pause_circle, color: Colors.amber, size: 28),
-                const SizedBox(width: 12),
-                const Text(
-                  'Break Time Analysis',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (stateData.isLoadingData)
-              const Center(child: CircularProgressIndicator())
-            else ...[
-              ..._buildBreakSessionsList(stateData),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build recent call logs section
-  Widget _buildRecentCallLogs(DashboardState state) {
-    final stateData = _getStateData(state);
-
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.history, color: Colors.cyan, size: 28),
-                const SizedBox(width: 12),
-                const Text(
-                  'Recent Call Logs',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (stateData.isLoadingData)
-              const Center(child: CircularProgressIndicator())
-            else ...[
-              ..._buildRecentCallsList(stateData),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =================
-  // HELPER METHODS
-  // =================
-
-  Widget _buildStatItem(
+  Widget _buildBucketRow(
+    BuildContext context,
     String label,
-    String value,
+    Map<String, dynamic> bucket,
+    Color color,
     IconData icon,
-    Color iconColor,
   ) {
+    final count = bucket['count'] ?? 0;
+    final balance = (bucket['total_outstanding'] as num?)?.toDouble() ?? 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: color)),
+                Text(
+                  '$count accounts',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '₱${_amtFmt.format(balance)}',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _portfolioStat(
+      String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 22),
+        const SizedBox(height: 6),
+        Text(value,
+            style: TextStyle(
+                fontSize: 15, fontWeight: FontWeight.bold, color: color)),
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _buildCallStatusBreakdown(DashboardState state) {
+    final d = _getStateData(state);
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.assessment, color: Colors.teal, size: 28),
+                SizedBox(width: 12),
+                Text('Call Status Breakdown',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (d.isLoadingData)
+              const Center(child: CircularProgressIndicator())
+            else
+              ..._buildCallStatusRows(d),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentCallLogs(DashboardState state) {
+    final d = _getStateData(state);
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.history, color: Colors.cyan, size: 28),
+                SizedBox(width: 12),
+                Text('Recent Call Logs',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (d.isLoadingData)
+              const Center(child: CircularProgressIndicator())
+            else
+              ..._buildRecentCallsList(d),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBreakTimeAnalysis(DashboardState state) {
+    final d = _getStateData(state);
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.pause_circle, color: Colors.amber, size: 28),
+                SizedBox(width: 12),
+                Text('Break Time Analysis',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (d.isLoadingData)
+              const Center(child: CircularProgressIndicator())
+            else
+              ..._buildBreakSessionsList(d),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================
+  // HELPER WIDGETS
+  // ==================
+
+  Widget _statItem(
+      String label, String value, IconData icon, Color iconColor) {
     return Column(
       children: [
         Icon(icon, color: iconColor, size: 24),
         const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white)),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.white70),
-          textAlign: TextAlign.center,
-        ),
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: Colors.white70),
+            textAlign: TextAlign.center),
       ],
-    );
-  }
-
-  Widget _buildAssignmentStat(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
-    );
-  }
-
-  Widget _buildBucketButton(
-    String title,
-    int totalCount,
-    int dialableCount,
-    Color color,
-    IconData icon,
-    BucketType bucketType,
-    BuildContext context,
-    AssignmentData? assignmentData,
-  ) {
-    return Material(
-      color: totalCount > 0
-          ? color.withValues(alpha: 0.1)
-          : Colors.grey.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: totalCount > 0 && assignmentData != null
-            ? () => _navigateToBucket(context, bucketType, assignmentData)
-            : null,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Icon(icon, color: totalCount > 0 ? color : Colors.grey, size: 24),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: totalCount > 0 ? color : Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '$totalCount',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: totalCount > 0 ? color : Colors.grey,
-                ),
-              ),
-              if (dialableCount > 0)
-                Text(
-                  '($dialableCount dialable)',
-                  style: const TextStyle(fontSize: 10, color: Colors.green),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBucketBreakdownRow(
-    String title,
-    Map<String, dynamic> stats,
-    Color color,
-    IconData icon,
-    BucketType bucketType,
-    BuildContext context,
-    AssignmentData? assignmentData,
-  ) {
-    final totalContacts = stats['total_loans'] ?? 0;
-    final dialableCount = stats['dialable_count'] ?? 0;
-    final coMakerCount = stats['co_maker_phone_count'] ?? 0;
-    final borrowerCount = stats['borrower_phone_count'] ?? 0;
-
-    return GestureDetector(
-      onTap: totalContacts > 0
-          ? () => _navigateToBucket(context, bucketType, assignmentData)
-          : null,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: totalContacts > 0
-              ? color.withValues(alpha: 0.1)
-              : Colors.grey.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: totalContacts > 0
-                ? color.withValues(alpha: 0.3)
-                : Colors.grey.withValues(alpha: 0.2),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: totalContacts > 0 ? color : Colors.grey,
-              size: 24,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: totalContacts > 0 ? color : Colors.grey,
-                    ),
-                  ),
-                  Text(
-                    'Total: $totalContacts | Dialable: $dialableCount',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'CM: $coMakerCount',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                Text(
-                  'B: $borrowerCount',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-            if (totalContacts > 0) ...[
-              const SizedBox(width: 8),
-              Icon(Icons.arrow_forward_ios, size: 16, color: color),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
     );
   }
 
@@ -1211,18 +618,18 @@ class _DashboardViewState extends State<DashboardView> {
       List<BreakSession> breakSessions,
       Map<String, dynamic> dailyStats,
       UserSession? userSession,
-      AssignmentData? assignmentData,
+      Map<String, dynamic>? dialerStats,
       bool isLoadingData,
-      bool isRequestingAssignments,
+      bool isLoadingStats,
     })
-    stateData,
+    d,
   ) {
-    final todaysCalls = stateData.callLogs
+    final todaysCalls = d.callLogs
         .where(
           (log) =>
-              log.callTime.day == stateData.selectedDate.day &&
-              log.callTime.month == stateData.selectedDate.month &&
-              log.callTime.year == stateData.selectedDate.year,
+              log.callTime.day == d.selectedDate.day &&
+              log.callTime.month == d.selectedDate.month &&
+              log.callTime.year == d.selectedDate.year,
         )
         .toList();
 
@@ -1231,10 +638,8 @@ class _DashboardViewState extends State<DashboardView> {
         const Center(
           child: Padding(
             padding: EdgeInsets.all(20),
-            child: Text(
-              'No calls made today',
-              style: TextStyle(color: Colors.grey),
-            ),
+            child: Text('No calls made today',
+                style: TextStyle(color: Colors.grey)),
           ),
         ),
       ];
@@ -1242,88 +647,13 @@ class _DashboardViewState extends State<DashboardView> {
 
     return CallStatus.values.map((status) {
       final count = todaysCalls.where((log) => log.status == status).length;
-      final percentage = todaysCalls.isEmpty
-          ? 0.0
-          : (count / todaysCalls.length);
-
+      final percentage =
+          todaysCalls.isEmpty ? 0.0 : (count / todaysCalls.length);
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: _buildStatusRow(status, count, percentage),
       );
     }).toList();
-  }
-
-  List<Widget> _buildBreakSessionsList(
-    ({
-      DateTime selectedDate,
-      List<CallLog> callLogs,
-      List<BreakSession> breakSessions,
-      Map<String, dynamic> dailyStats,
-      UserSession? userSession,
-      AssignmentData? assignmentData,
-      bool isLoadingData,
-      bool isRequestingAssignments,
-    })
-    stateData,
-  ) {
-    final todaysBreaks = stateData.breakSessions
-        .where(
-          (session) =>
-              session.startTime.day == stateData.selectedDate.day &&
-              session.startTime.month == stateData.selectedDate.month &&
-              session.startTime.year == stateData.selectedDate.year,
-        )
-        .toList();
-
-    if (todaysBreaks.isEmpty) {
-      return [
-        const Center(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Text(
-              'No break sessions today',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ),
-        ),
-      ];
-    }
-
-    return todaysBreaks
-        .map((breakSession) => _buildBreakSessionTile(breakSession))
-        .toList();
-  }
-
-  List<Widget> _buildRecentCallsList(
-    ({
-      DateTime selectedDate,
-      List<CallLog> callLogs,
-      List<BreakSession> breakSessions,
-      Map<String, dynamic> dailyStats,
-      UserSession? userSession,
-      AssignmentData? assignmentData,
-      bool isLoadingData,
-      bool isRequestingAssignments,
-    })
-    stateData,
-  ) {
-    final recentCalls = stateData.callLogs.take(5).toList();
-
-    if (recentCalls.isEmpty) {
-      return [
-        const Center(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Text(
-              'No recent calls',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ),
-        ),
-      ];
-    }
-
-    return recentCalls.map((callLog) => _buildCallLogTile(callLog)).toList();
   }
 
   Widget _buildStatusRow(CallStatus status, int count, double percentage) {
@@ -1357,10 +687,9 @@ class _DashboardViewState extends State<DashboardView> {
         Icon(statusIcon, color: statusColor, size: 20),
         const SizedBox(width: 8),
         Expanded(child: Text(status.displayName)),
-        Text(
-          count.toString(),
-          style: TextStyle(fontWeight: FontWeight.bold, color: statusColor),
-        ),
+        Text(count.toString(),
+            style:
+                TextStyle(fontWeight: FontWeight.bold, color: statusColor)),
         const SizedBox(width: 8),
         SizedBox(
           width: 60,
@@ -1370,32 +699,95 @@ class _DashboardViewState extends State<DashboardView> {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          '${(percentage * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(fontSize: 12),
-        ),
+        Text('${(percentage * 100).toStringAsFixed(0)}%',
+            style: const TextStyle(fontSize: 12)),
       ],
     );
   }
 
-  Widget _buildBreakSessionTile(BreakSession breakSession) {
+  List<Widget> _buildBreakSessionsList(
+    ({
+      DateTime selectedDate,
+      List<CallLog> callLogs,
+      List<BreakSession> breakSessions,
+      Map<String, dynamic> dailyStats,
+      UserSession? userSession,
+      Map<String, dynamic>? dialerStats,
+      bool isLoadingData,
+      bool isLoadingStats,
+    })
+    d,
+  ) {
+    final todaysBreaks = d.breakSessions
+        .where(
+          (s) =>
+              s.startTime.day == d.selectedDate.day &&
+              s.startTime.month == d.selectedDate.month &&
+              s.startTime.year == d.selectedDate.year,
+        )
+        .toList();
+
+    if (todaysBreaks.isEmpty) {
+      return [
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Text('No break sessions today',
+                style: TextStyle(color: Colors.grey)),
+          ),
+        ),
+      ];
+    }
+
+    return todaysBreaks.map(_buildBreakSessionTile).toList();
+  }
+
+  Widget _buildBreakSessionTile(BreakSession s) {
     return ListTile(
-      leading: Icon(_getBreakTypeIcon(breakSession.type), color: Colors.orange),
-      title: Text(breakSession.type.name),
+      leading: Icon(_getBreakTypeIcon(s.type), color: Colors.orange),
+      title: Text(s.type.name),
       subtitle: Text(
-        '${_formatTime(breakSession.startTime)} - ${breakSession.endTime != null ? _formatTime(breakSession.endTime!) : 'Ongoing'}',
+        '${_formatTime(s.startTime)} - ${s.endTime != null ? _formatTime(s.endTime!) : 'Ongoing'}',
       ),
-      trailing: Text(
-        _formatDuration(breakSession.actualDuration),
-        style: const TextStyle(fontWeight: FontWeight.bold),
-      ),
+      trailing: Text(_formatDuration(s.actualDuration),
+          style: const TextStyle(fontWeight: FontWeight.bold)),
     );
+  }
+
+  List<Widget> _buildRecentCallsList(
+    ({
+      DateTime selectedDate,
+      List<CallLog> callLogs,
+      List<BreakSession> breakSessions,
+      Map<String, dynamic> dailyStats,
+      UserSession? userSession,
+      Map<String, dynamic>? dialerStats,
+      bool isLoadingData,
+      bool isLoadingStats,
+    })
+    d,
+  ) {
+    final recent = d.callLogs.take(5).toList();
+
+    if (recent.isEmpty) {
+      return [
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Text('No recent calls',
+                style: TextStyle(color: Colors.grey)),
+          ),
+        ),
+      ];
+    }
+
+    return recent.map(_buildCallLogTile).toList();
   }
 
   Widget _buildCallLogTile(CallLog callLog) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      child: ExpansionTile(
+      child: ListTile(
         leading: Icon(
           _getCallStatusIcon(callLog.status),
           color: _getCallStatusColor(callLog.status),
@@ -1416,7 +808,8 @@ class _DashboardViewState extends State<DashboardView> {
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: _getCallStatusColor(callLog.status).withValues(alpha: 0.1),
+            color:
+                _getCallStatusColor(callLog.status).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -1428,104 +821,13 @@ class _DashboardViewState extends State<DashboardView> {
             ),
           ),
         ),
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildDetailRow('Call ID', callLog.id?.toString() ?? 'N/A'),
-                _buildDetailRow('Loan ID', callLog.loanID?.toString() ?? 'N/A'),
-                if (callLog.borrowerName?.isNotEmpty == true)
-                  _buildDetailRow('Borrower Name', callLog.borrowerName!),
-                if (callLog.borrowerPhone?.isNotEmpty == true)
-                  _buildDetailRow('Phone Number', callLog.borrowerPhone!),
-                _buildDetailRow(
-                  'Call Time',
-                  _formatFullDateTime(callLog.callTime),
-                ),
-                _buildDetailRow(
-                  'Duration',
-                  callLog.callDuration != null
-                      ? _formatDetailedDuration(callLog.callDuration!)
-                      : 'N/A',
-                ),
-                _buildDetailRow(
-                  'Status',
-                  _getStatusDescription(callLog.status),
-                ),
-                if (callLog.notes?.isNotEmpty == true)
-                  _buildDetailRow('Notes', callLog.notes!),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              '$label:',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(value, style: const TextStyle(color: Colors.black87)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // =====================
-  // FORMATTING UTILITIES
-  // =====================
-
-  String _getStatusDescription(CallStatus status) {
-    switch (status) {
-      case CallStatus.complete:
-        return 'Call completed successfully';
-      case CallStatus.noAnswer:
-        return 'No one answered the call';
-      case CallStatus.hangUp:
-        return 'Call was ended or hung up';
-      case CallStatus.pending:
-        return 'Call is scheduled or waiting';
-      case CallStatus.called:
-        return 'Call was made';
-    }
-  }
-
-  String _formatFullDateTime(DateTime dateTime) {
-    return '${_getDayName(dateTime.weekday)}, ${_getMonthName(dateTime.month)} ${dateTime.day}, ${dateTime.year} at ${_formatTime(dateTime)}';
-  }
-
-  String _formatDetailedDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes % 60;
-    final seconds = duration.inSeconds % 60;
-
-    if (hours > 0) {
-      return '${hours}h ${minutes}m ${seconds}s';
-    } else if (minutes > 0) {
-      return '${minutes}m ${seconds}s';
-    } else {
-      return '${seconds}s';
-    }
-  }
+  // ==================
+  // FORMATTING
+  // ==================
 
   IconData _getBreakTypeIcon(BreakType type) {
     switch (type) {
@@ -1570,58 +872,31 @@ class _DashboardViewState extends State<DashboardView> {
     }
   }
 
-  String _formatTime(DateTime dateTime) {
-    final hour12 = dateTime.hour == 0
-        ? 12
-        : (dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour);
-    final amPm = dateTime.hour >= 12 ? 'PM' : 'AM';
-    return '${hour12.toString()}:${dateTime.minute.toString().padLeft(2, '0')} $amPm';
+  String _formatTime(DateTime dt) {
+    final hour12 =
+        dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
+    final amPm = dt.hour >= 12 ? 'PM' : 'AM';
+    return '${hour12.toString()}:${dt.minute.toString().padLeft(2, '0')} $amPm';
   }
 
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes % 60;
-
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    } else {
-      return '${minutes}m';
-    }
-  }
-
-  String _formatDateTime(DateTime dateTime) {
-    return '${dateTime.day}/${dateTime.month}/${dateTime.year} '
-        '${dateTime.hour.toString().padLeft(2, '0')}:'
-        '${dateTime.minute.toString().padLeft(2, '0')}';
+  String _formatDuration(Duration d) {
+    final hours = d.inHours;
+    final minutes = d.inMinutes % 60;
+    return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
   }
 
   String _getDayName(int weekday) {
     const days = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+      'Friday', 'Saturday', 'Sunday'
     ];
     return days[weekday - 1];
   }
 
   String _getMonthName(int month) {
     const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
     ];
     return months[month - 1];
   }

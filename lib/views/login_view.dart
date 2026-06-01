@@ -4,6 +4,7 @@ import 'package:lenderly_dialer/blocs/auth/auth_bloc.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_event.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_state.dart';
 import 'package:lenderly_dialer/commons/reusables/toast.dart';
+import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -20,11 +21,31 @@ class _LoginViewState extends State<LoginView> {
   bool _rememberMe = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadLastUsername();
+  }
+
+  @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
     _tokenController.dispose();
     super.dispose();
+  }
+
+  /// Load the last used username for convenience
+  Future<void> _loadLastUsername() async {
+    try {
+      final lastUsername = await SharedPrefsStorageService.getLastUsername();
+      if (lastUsername != null && lastUsername.isNotEmpty) {
+        setState(() {
+          _usernameController.text = lastUsername;
+        });
+      }
+    } catch (e) {
+      // Silently handle error - not critical for login
+    }
   }
 
   void _handleLogin() {
@@ -77,6 +98,9 @@ class _LoginViewState extends State<LoginView> {
             Navigator.of(context).pushReplacementNamed('/dashboard');
           } else if (state is AuthError) {
             _showError(state.message);
+          } else if (state is AuthUnauthenticated) {
+            // When user returns to login (after logout), reload the last username
+            _loadLastUsername();
           }
         },
         child: BlocBuilder<AuthBloc, AuthState>(
@@ -174,8 +198,25 @@ class _LoginViewState extends State<LoginView> {
                                   controller: _usernameController,
                                   decoration: InputDecoration(
                                     labelText: 'Username',
-                                    hintText: 'Enter your username',
+                                    hintText:
+                                        _usernameController.text.isNotEmpty
+                                        ? 'Previously used: ${_usernameController.text}'
+                                        : 'Enter your username',
                                     prefixIcon: const Icon(Icons.person),
+                                    suffixIcon:
+                                        _usernameController.text.isNotEmpty
+                                        ? IconButton(
+                                            icon: const Icon(
+                                              Icons.clear,
+                                              size: 20,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                _usernameController.clear();
+                                              });
+                                            },
+                                          )
+                                        : null,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(8),
                                     ),

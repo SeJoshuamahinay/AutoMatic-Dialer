@@ -54,6 +54,7 @@ dependencies:
   sqlite3_flutter_libs: ^0.5.0
   universal_io: ^2.2.2
   sqlite3: ^2.9.0
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:

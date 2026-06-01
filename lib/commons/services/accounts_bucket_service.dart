@@ -9,6 +9,10 @@ class AccountsBucketService {
   static const String _assignLoansEndpoint =
       '/api/lenderly/dialer/assign-loans';
   static const String _userLoansEndpoint = '/api/lenderly/dialer/user-loans';
+  static const String _dialerDataEndpoint = '/api/lenderly/dialer/data';
+  static const String _dialerStatsEndpoint = '/api/lenderly/dialer/stats';
+  static const String _loanDetailEndpoint =
+      '/api/lenderly/dialer/get-loan-details';
 
   /// Assign loans to a user by posting user_id to the assign-loans endpoint
   static Future<AssignmentResponse> assignLoansToUser(String userId) async {
@@ -226,40 +230,136 @@ class AccountsBucketService {
     return [...coMakerLoans, ...borrowerOnlyLoans];
   }
 
-  /// Get bucket statistics including co-maker vs borrower phone counts
-  static Map<String, dynamic> getBucketStatistics(
-    AssignmentData assignmentData,
-    BucketType bucketType,
-  ) {
-    final bucketLoans = assignmentData.getLoansByBucket(bucketType);
+  /// Get loans for a specific bucket from the new dialer API
+  /// Calls GET /api/lenderly/dialer/data/{bucket}?user_id={userId}
+  static Future<List<DialerLoanRecord>> getDialerDataByBucket(
+    String userId,
+    String bucket,
+  ) async {
+    try {
+      await EnvironmentConfig.initialize();
 
-    int totalLoans = bucketLoans.length;
-    int coMakerPhoneCount = 0;
-    int borrowerPhoneCount = 0;
-    int noPhoneCount = 0;
+      final baseUrl = EnvironmentConfig.apiBaseUrl;
+      if (baseUrl.isEmpty) throw Exception('API base URL is not configured');
 
-    for (final loan in bucketLoans) {
-      if (loan.borrower?.coMakerPhone != null &&
-          loan.borrower!.coMakerPhone!.isNotEmpty) {
-        coMakerPhoneCount++;
-      } else if (loan.borrower?.borrowerPhone != null &&
-          loan.borrower!.borrowerPhone!.isNotEmpty) {
-        borrowerPhoneCount++;
-      } else {
-        noPhoneCount++;
+      final url = Uri.parse(
+        '$baseUrl$_dialerDataEndpoint/$bucket?user_id=$userId',
+      );
+      final token = await SharedPrefsStorageService.getAuthToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Authentication token is missing');
       }
+
+      final response = await http
+          .get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 60));
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        // Response: {success: true, data: {records: [...]}}
+        List<dynamic> records;
+        if (jsonData is List) {
+          records = jsonData;
+        } else if (jsonData is Map) {
+          final inner = jsonData['data'];
+          if (inner is List) {
+            records = inner;
+          } else if (inner is Map && inner['records'] is List) {
+            records = inner['records'] as List<dynamic>;
+          } else {
+            records = [];
+          }
+        } else {
+          records = [];
+        }
+        return records
+            .map((e) => DialerLoanRecord.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw Exception('HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get loan statistics from the new dialer stats API
+  /// Calls GET /api/lenderly/dialer/stats?user_id={userId}
+  static Future<Map<String, dynamic>> getDialerStats(String userId) async {
+    try {
+      await EnvironmentConfig.initialize();
+
+      final baseUrl = EnvironmentConfig.apiBaseUrl;
+      if (baseUrl.isEmpty) throw Exception('API base URL is not configured');
+
+      final url = Uri.parse('$baseUrl$_dialerStatsEndpoint?user_id=$userId');
+      final token = await SharedPrefsStorageService.getAuthToken();
+      if (token == null || token.isEmpty) {
+        throw Exception('Authentication token is missing');
+      }
+
+      final response = await http
+          .get(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body) as Map<String, dynamic>;
+        // Unwrap {success: true, data: {...}} envelope
+        if (jsonData['data'] is Map) {
+          return jsonData['data'] as Map<String, dynamic>;
+        }
+        return jsonData;
+      } else {
+        throw Exception('HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Fetch borrower_id for a given loan from the loan detail endpoint.
+  static Future<int> getBorrowerIdForLoan(int loanId) async {
+    await EnvironmentConfig.initialize();
+    final baseUrl = EnvironmentConfig.apiBaseUrl;
+    if (baseUrl.isEmpty) throw Exception('API base URL is not configured');
+
+    final token = await SharedPrefsStorageService.getAuthToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('Authentication token is missing');
     }
 
-    return {
-      'bucket_type': bucketType.displayName,
-      'total_loans': totalLoans,
-      'co_maker_phone_count': coMakerPhoneCount,
-      'borrower_phone_count': borrowerPhoneCount,
-      'no_phone_count': noPhoneCount,
-      'dialable_count': coMakerPhoneCount + borrowerPhoneCount,
-      'co_maker_percentage': totalLoans > 0
-          ? (coMakerPhoneCount / totalLoans * 100).round()
-          : 0,
-    };
+    final url = Uri.parse('$baseUrl$_loanDetailEndpoint/$loanId');
+    final response = await http
+        .get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = json['data'] as Map<String, dynamic>?;
+      final loan = data?['loan'] as Map<String, dynamic>?;
+      final id = loan?['borrower_id'];
+      if (id != null) return (id as num).toInt();
+      throw Exception('borrower_id not found in loan detail');
+    } else {
+      throw Exception('HTTP ${response.statusCode}');
+    }
   }
 }

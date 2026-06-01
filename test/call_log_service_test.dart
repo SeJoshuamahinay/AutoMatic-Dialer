@@ -21,7 +21,6 @@ void main() {
       } catch (e) {
         // In test environment, database initialization might fail
         // This is expected and acceptable for unit tests
-        print('Database initialization failed in test environment: $e');
         expect(e, isA<Exception>());
       }
     });
@@ -34,7 +33,6 @@ void main() {
         expect(stats.containsKey('total_calls'), isTrue);
       } catch (e) {
         // Database operations might fail in test environment
-        print('Database operation failed in test environment: $e');
         expect(e, isA<Exception>());
       }
     });
@@ -46,7 +44,6 @@ void main() {
         expect(history, isA<List>());
       } catch (e) {
         // Database operations might fail in test environment
-        print('Database operation failed in test environment: $e');
         expect(e, isA<Exception>());
       }
     });
@@ -59,7 +56,6 @@ void main() {
         await callLogService.initialize();
       } catch (e) {
         // In test environment, initialization may fail due to missing plugins
-        print('Database operation failed in test environment: $e');
       }
 
       try {
@@ -70,7 +66,6 @@ void main() {
         expect(stats.containsKey('success_rate'), true);
       } catch (e) {
         // In test environment, database operations may fail
-        print('Database operation failed in test environment: $e');
         expect(e, isA<Exception>());
       }
     });
