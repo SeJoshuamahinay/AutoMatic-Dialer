@@ -1,14 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lenderly_dialer/blocs/dashboard/dashboard_bloc.dart';
+import 'package:lenderly_dialer/commons/services/break_service.dart';
+import 'package:lenderly_dialer/database/app_database.dart';
 import 'package:lenderly_dialer/views/dashboard_view.dart';
 
 void main() {
+  Widget _testHost() {
+    return BlocProvider(
+      create: (_) => DashboardBloc(BreakService(AppDatabase())),
+      child: const MaterialApp(home: DashboardView()),
+    );
+  }
+
   group('Dashboard Integration Tests', () {
     testWidgets('Dashboard should build without errors', (
       WidgetTester tester,
     ) async {
       // Build our app and trigger a frame.
-      await tester.pumpWidget(MaterialApp(home: const DashboardView()));
+      await tester.pumpWidget(_testHost());
 
       // Verify that the dashboard loads
       expect(find.text('Dashboard'), findsOneWidget);
@@ -17,16 +28,17 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
 
       // Look for basic dashboard elements that should always be present
-      expect(find.text('Account Assignments'), findsOneWidget);
-      expect(find.text('Call Status Breakdown'), findsOneWidget);
-      expect(find.text('Break Time Analysis'), findsOneWidget);
-      expect(find.text('Recent Call Logs'), findsOneWidget);
+      expect(find.text('Live Operations'), findsOneWidget);
+      expect(find.text('Portfolio'), findsOneWidget);
+      expect(find.text('Call Activity'), findsOneWidget);
+      expect(find.text('Latest Calls'), findsOneWidget);
+      expect(find.text('Break Summary'), findsOneWidget);
     });
 
     testWidgets('Dashboard should handle refresh action', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(MaterialApp(home: const DashboardView()));
+      await tester.pumpWidget(_testHost());
 
       // Wait for initial load
       await tester.pump(const Duration(seconds: 1));
@@ -44,7 +56,7 @@ void main() {
     testWidgets('Dashboard should handle date selection', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(MaterialApp(home: const DashboardView()));
+      await tester.pumpWidget(_testHost());
 
       // Wait for initial load
       await tester.pump(const Duration(seconds: 1));

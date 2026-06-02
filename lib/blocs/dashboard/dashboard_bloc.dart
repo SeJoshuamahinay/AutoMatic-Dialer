@@ -79,12 +79,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     }
 
     try {
-      try {
-        await _callLogService.initialize();
-      } catch (e) {
-        debugPrint('❌ Failed to initialize CallLogService: $e');
-      }
-
       final userId = currentUserSession?.userId ?? 1;
 
       final startOfDay = DateTime(
@@ -138,8 +132,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         ),
       );
 
-      // Also load dialer stats in background
-      _loadDialerStats(currentUserSession?.userId, emit);
+      // Load dialer stats in the same async event handler so emit stays valid.
+      await _loadDialerStats(currentUserSession?.userId, emit);
     } catch (e) {
       debugPrint('❌ Dashboard data loading failed: $e');
       emit(
@@ -153,24 +147,32 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     }
   }
 
-  void _loadDialerStats(int? userId, Emitter<DashboardState> emit) async {
+  Future<void> _loadDialerStats(
+    int? userId,
+    Emitter<DashboardState> emit,
+  ) async {
     if (userId == null) return;
     if (state is! DashboardLoaded) return;
+    if (emit.isDone) return;
 
     final currentState = state as DashboardLoaded;
     emit(currentState.copyWith(isLoadingStats: true));
 
     try {
-      final stats = await AccountsBucketService.getDialerStats(userId.toString());
-      if (state is DashboardLoaded) {
-        emit((state as DashboardLoaded).copyWith(
-          dialerStats: stats,
-          isLoadingStats: false,
-        ));
+      final stats = await AccountsBucketService.getDialerStats(
+        userId.toString(),
+      );
+      if (!emit.isDone && state is DashboardLoaded) {
+        emit(
+          (state as DashboardLoaded).copyWith(
+            dialerStats: stats,
+            isLoadingStats: false,
+          ),
+        );
       }
     } catch (e) {
       debugPrint('❌ Failed to load dialer stats: $e');
-      if (state is DashboardLoaded) {
+      if (!emit.isDone && state is DashboardLoaded) {
         emit((state as DashboardLoaded).copyWith(isLoadingStats: false));
       }
     }
@@ -202,21 +204,26 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         : null;
     if (userId == null) return;
 
+    if (emit.isDone) return;
     if (state is DashboardLoaded) {
       emit((state as DashboardLoaded).copyWith(isLoadingStats: true));
     }
 
     try {
-      final stats = await AccountsBucketService.getDialerStats(userId.toString());
-      if (state is DashboardLoaded) {
-        emit((state as DashboardLoaded).copyWith(
-          dialerStats: stats,
-          isLoadingStats: false,
-        ));
+      final stats = await AccountsBucketService.getDialerStats(
+        userId.toString(),
+      );
+      if (!emit.isDone && state is DashboardLoaded) {
+        emit(
+          (state as DashboardLoaded).copyWith(
+            dialerStats: stats,
+            isLoadingStats: false,
+          ),
+        );
       }
     } catch (e) {
       debugPrint('❌ Failed to refresh dialer stats: $e');
-      if (state is DashboardLoaded) {
+      if (!emit.isDone && state is DashboardLoaded) {
         emit((state as DashboardLoaded).copyWith(isLoadingStats: false));
       }
     }
