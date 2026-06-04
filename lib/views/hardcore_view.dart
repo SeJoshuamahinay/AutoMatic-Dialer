@@ -443,6 +443,16 @@ class _HardcoreViewState extends State<HardcoreView> {
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if ((r.borrowerCity ?? '').isNotEmpty)
+                          Text(
+                            r.borrowerCity!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade700,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         Text(
                           r.accountNumber,
                           style: TextStyle(

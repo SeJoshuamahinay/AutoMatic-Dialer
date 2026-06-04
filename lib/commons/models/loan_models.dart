@@ -352,6 +352,7 @@ class DialerLoanRecord {
   final String uniqueNumber;
   final String accountNumber;
   final String fullName;
+  final String? borrowerCity;
   final String? phone;
   final String? mobile;
   final String? outstandingBalance;
@@ -368,6 +369,7 @@ class DialerLoanRecord {
     required this.uniqueNumber,
     required this.accountNumber,
     required this.fullName,
+    this.borrowerCity,
     this.phone,
     this.mobile,
     this.outstandingBalance,
@@ -389,6 +391,7 @@ class DialerLoanRecord {
       uniqueNumber: json['unique_number']?.toString() ?? '',
       accountNumber: json['account_number']?.toString() ?? '',
       fullName: json['full_name']?.toString() ?? 'Unknown',
+      borrowerCity: json['borrower_city']?.toString(),
       phone: json['phone']?.toString(),
       mobile: json['mobile']?.toString(),
       outstandingBalance: json['outstanding_balance']?.toString(),

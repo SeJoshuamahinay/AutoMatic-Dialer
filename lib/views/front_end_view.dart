@@ -441,6 +441,16 @@ class _FrontEndViewState extends State<FrontEndView> {
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if ((r.borrowerCity ?? '').isNotEmpty)
+                          Text(
+                            r.borrowerCity!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         Text(
                           r.accountNumber,
                           style: TextStyle(

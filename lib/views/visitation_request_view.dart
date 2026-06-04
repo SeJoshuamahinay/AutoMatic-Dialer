@@ -3,8 +3,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
+import 'package:lenderly_dialer/commons/services/environment_config.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 
 class _BorrowerSearchItem {
@@ -63,6 +66,30 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
     'Borrower Tracing',
   ];
 
+  static const List<String> _approvalReasons = <String>[
+    'Long-term resident',
+    'Known by community',
+    'Ownership verified',
+    'Rental verified',
+    'Utility bill explained',
+    'Barangay verified',
+    'Guard / HOA verified',
+    'Other',
+  ];
+
+  static const List<String> _declineReasons = <String>[
+    'Address mismatch',
+    'Vacant property',
+    'Unknown borrower',
+    'Ownership issue',
+    'Co-maker issue',
+    'Utility bill mismatch',
+    'Squatter area',
+    'Fraud suspected',
+    'Short-term tenant',
+    'Other',
+  ];
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _borrowerIdCtrl = TextEditingController();
   final TextEditingController _longitudeCtrl = TextEditingController();
@@ -71,12 +98,19 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
   final TextEditingController _cityCtrl = TextEditingController();
   final TextEditingController _brgyCtrl = TextEditingController();
   final TextEditingController _houseNumberCtrl = TextEditingController();
+  final TextEditingController _remarksCtrl = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
 
   int? _userId;
   String? _selectedType;
   String? _selectedBorrowerName;
   int? _selectedLoanId;
   int? _selectedCountryId;
+  bool? _verificationResult;
+  String? _selectedPrimaryReason;
+  bool _fraudFlag = false;
+  XFile? _attachment;
+  bool _showAttachmentError = false;
   List<_CountryOption> _countries = const <_CountryOption>[];
   DateTime _visitedAt = DateTime.now();
   bool _isLoadingUser = true;
@@ -390,7 +424,84 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
     _cityCtrl.dispose();
     _brgyCtrl.dispose();
     _houseNumberCtrl.dispose();
+    _remarksCtrl.dispose();
     super.dispose();
+  }
+
+  List<String> get _primaryReasons {
+    if (_verificationResult == true) return _approvalReasons;
+    if (_verificationResult == false) return _declineReasons;
+    return const <String>[];
+  }
+
+  String get _verificationLabel {
+    if (_verificationResult == true) return 'Approved';
+    if (_verificationResult == false) return 'Declined';
+    return 'Pending';
+  }
+
+  Future<void> _pickAttachment() async {
+    try {
+      final file = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (!mounted || file == null) return;
+      setState(() {
+        _attachment = file;
+        _showAttachmentError = false;
+      });
+    } catch (e) {
+      _showSnack('Attachment capture failed: $e', isError: true);
+    }
+  }
+
+  String _extractApiMessage(String? bodyText, int statusCode, String fallback) {
+    if (bodyText == null || bodyText.isEmpty) {
+      return '$fallback (HTTP $statusCode)';
+    }
+    try {
+      final body = jsonDecode(bodyText) as Map<String, dynamic>;
+      final errors = body['errors'];
+      if (errors is Map<String, dynamic>) {
+        for (final entry in errors.entries) {
+          final value = entry.value;
+          if (value is List && value.isNotEmpty) {
+            final first = value.first?.toString();
+            if (first != null && first.trim().isNotEmpty) return first;
+          }
+          if (value is String && value.trim().isNotEmpty) return value;
+        }
+      }
+      final msg = body['message']?.toString();
+      if (msg != null && msg.trim().isNotEmpty) return msg;
+    } catch (_) {}
+    return '$fallback (HTTP $statusCode)';
+  }
+
+  Future<http.Response> _postVisitationMultipart(
+    Map<String, String> fields,
+  ) async {
+    final token = await SharedPrefsStorageService.getAuthToken();
+    final uri = Uri.parse(
+      '${EnvironmentConfig.apiBaseUrl}/api/visitation-requests',
+    );
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Accept'] = 'application/json'
+      ..fields.addAll(fields);
+
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    if (_attachment != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath('attachment', _attachment!.path),
+      );
+    }
+
+    final response = await request.send();
+    return http.Response.fromStream(response);
   }
 
   Future<void> _loadUser() async {
@@ -533,6 +644,12 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
       return;
     }
 
+    if (_attachment == null) {
+      setState(() => _showAttachmentError = true);
+      _showSnack('Attachment is required.', isError: true);
+      return;
+    }
+
     final payload = <String, dynamic>{
       'user_id': _userId,
       'borrower_id': borrowerId,
@@ -541,6 +658,13 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
       'longitute': double.parse(_longitudeCtrl.text.trim()),
       'lattitude': double.parse(_latitudeCtrl.text.trim()),
       'visited_at': _visitedAt.toIso8601String(),
+      if (_remarksCtrl.text.trim().isNotEmpty)
+        'remarks': _remarksCtrl.text.trim(),
+      if (_verificationResult != null)
+        'verification_result': _verificationResult,
+      if ((_selectedPrimaryReason ?? '').trim().isNotEmpty)
+        'primary_reason': _selectedPrimaryReason,
+      if (_verificationResult == false || _fraudFlag) 'fraud_flag': _fraudFlag,
       if ((_countryById(_selectedCountryId)?.name ?? '').isNotEmpty)
         'country': _countryById(_selectedCountryId)!.name,
       if (_regionCtrl.text.trim().isNotEmpty) 'region': _regionCtrl.text.trim(),
@@ -552,10 +676,34 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
 
     setState(() => _isSubmitting = true);
     try {
-      final response = await ApiClient.post(
-        '/api/visitation-requests',
-        body: payload,
-      );
+      final response = _attachment == null
+          ? await ApiClient.post('/api/visitation-requests', body: payload)
+          : await _postVisitationMultipart({
+              'user_id': _userId.toString(),
+              if (borrowerId != null) 'borrower_id': borrowerId.toString(),
+              'visitation_type': _selectedType!,
+              'longitute': _longitudeCtrl.text.trim(),
+              'lattitude': _latitudeCtrl.text.trim(),
+              'visited_at': _visitedAt.toIso8601String(),
+              if (_remarksCtrl.text.trim().isNotEmpty)
+                'remarks': _remarksCtrl.text.trim(),
+              if (_verificationResult != null)
+                'verification_result': _verificationResult! ? '1' : '0',
+              if ((_selectedPrimaryReason ?? '').trim().isNotEmpty)
+                'primary_reason': _selectedPrimaryReason!,
+              if (_verificationResult == false || _fraudFlag)
+                'fraud_flag': _fraudFlag ? '1' : '0',
+              if ((_countryById(_selectedCountryId)?.name ?? '').isNotEmpty)
+                'country': _countryById(_selectedCountryId)!.name,
+              if (_regionCtrl.text.trim().isNotEmpty)
+                'region': _regionCtrl.text.trim(),
+              if (_cityCtrl.text.trim().isNotEmpty)
+                'city': _cityCtrl.text.trim(),
+              if (_brgyCtrl.text.trim().isNotEmpty)
+                'brgy': _brgyCtrl.text.trim(),
+              if (_houseNumberCtrl.text.trim().isNotEmpty)
+                'house_number': _houseNumberCtrl.text.trim(),
+            });
       final body = response.body.isNotEmpty
           ? jsonDecode(response.body) as Map<String, dynamic>
           : <String, dynamic>{};
@@ -569,8 +717,11 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
         return;
       }
 
-      final err = (body['message'] ?? 'Failed to create visitation request.')
-          .toString();
+      final err = _extractApiMessage(
+        response.body,
+        response.statusCode,
+        'Failed to create visitation request.',
+      );
       _showSnack(err, isError: true);
     } catch (e) {
       _showSnack('Submit failed: $e', isError: true);
@@ -662,6 +813,122 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
                       const LinearProgressIndicator(minHeight: 3),
                     ],
                     const SizedBox(height: 12),
+                    DropdownButtonFormField<bool>(
+                      value: _verificationResult,
+                      decoration: InputDecoration(
+                        labelText: 'Verification Result ($_verificationLabel)',
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem<bool>(
+                          value: true,
+                          child: Text('Approve'),
+                        ),
+                        DropdownMenuItem<bool>(
+                          value: false,
+                          child: Text('Decline'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _verificationResult = value;
+                          _selectedPrimaryReason = null;
+                          if (value != false) {
+                            _fraudFlag = false;
+                          }
+                        });
+                      },
+                      validator: (value) => value == null
+                          ? 'Verification result is required'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: _primaryReasons.contains(_selectedPrimaryReason)
+                          ? _selectedPrimaryReason
+                          : null,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: _verificationResult == true
+                            ? 'Primary Reason (Approved)'
+                            : _verificationResult == false
+                            ? 'Primary Reason (Declined)'
+                            : 'Primary Reason',
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: _primaryReasons
+                          .map(
+                            (reason) => DropdownMenuItem<String>(
+                              value: reason,
+                              child: Text(reason),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: _primaryReasons.isEmpty
+                          ? null
+                          : (value) =>
+                                setState(() => _selectedPrimaryReason = value),
+                      validator: (value) {
+                        if (_verificationResult == null) {
+                          return 'Select verification result first';
+                        }
+                        if ((value ?? '').trim().isEmpty) {
+                          return 'Primary reason is required';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile.adaptive(
+                      value: _fraudFlag,
+                      title: const Text('Fraud Flag'),
+                      subtitle: const Text(
+                        'Mark when visit indicates fraud risk.',
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: (value) => setState(() => _fraudFlag = value),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _remarksCtrl,
+                      maxLines: 4,
+                      maxLength: 1000,
+                      decoration: const InputDecoration(
+                        labelText: 'Remarks',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => _requiredText(value, 'Remarks'),
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Attachment'),
+                      subtitle: Text(
+                        _attachment == null
+                            ? 'No attachment selected'
+                            : _attachment!.name,
+                        style: _showAttachmentError && _attachment == null
+                            ? const TextStyle(color: Colors.red)
+                            : null,
+                      ),
+                      trailing: OutlinedButton(
+                        onPressed: _pickAttachment,
+                        child: Text(_attachment == null ? 'Capture' : 'Retake'),
+                      ),
+                    ),
+                    if (_showAttachmentError && _attachment == null)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Attachment is required',
+                            style: TextStyle(color: Colors.red, fontSize: 12),
+                          ),
+                        ),
+                      )
+                    else
+                      const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(

@@ -14,6 +14,7 @@ class SearchResult {
   final String? uniqueNumber;
   final String? accountNumber;
   final String? fullName;
+  final String? borrowerCity;
   final String? phone;
   final String? mobile;
 
@@ -23,6 +24,7 @@ class SearchResult {
     this.uniqueNumber,
     this.accountNumber,
     this.fullName,
+    this.borrowerCity,
     this.phone,
     this.mobile,
   });
@@ -34,6 +36,7 @@ class SearchResult {
       uniqueNumber: json['unique_number']?.toString(),
       accountNumber: json['account_number']?.toString(),
       fullName: json['full_name']?.toString(),
+      borrowerCity: json['borrower_city']?.toString(),
       phone: json['phone']?.toString(),
       mobile: json['mobile']?.toString(),
     );
@@ -248,6 +251,16 @@ class _SearchLoanViewState extends State<SearchLoanView> {
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if ((result.borrowerCity ?? '').isNotEmpty)
+                          Text(
+                            result.borrowerCity!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[800],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         if (result.accountNumber != null)
                           Text(
                             'Account: ${result.accountNumber}',

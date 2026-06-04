@@ -222,13 +222,14 @@ class _DashboardViewState extends State<DashboardView> {
                 color: const Color(0xFFF59E0B),
                 onTap: _openTimeOutPage,
               ),
-              _quickActionCard(
-                title: 'Reimbursement',
-                subtitle: 'Request draft only',
-                icon: Icons.receipt_long,
-                color: const Color(0xFF8B5CF6),
-                onTap: _openReimbursementActionSheet,
-              ),
+              //for release in v1.2.0
+              // _quickActionCard(
+              //   title: 'Reimbursement',
+              //   subtitle: 'Request draft only',
+              //   icon: Icons.receipt_long,
+              //   color: const Color(0xFF8B5CF6),
+              //   onTap: _openReimbursementActionSheet,
+              // ),
             ],
           ),
         ],
