@@ -26,7 +26,34 @@ class AuthApiService {
           )
           .timeout(const Duration(seconds: timeoutSeconds));
 
-      final responseData = jsonDecode(response.body);
+      final status = response.statusCode;
+      final body = response.body.trim();
+
+      if (status >= 300 && status < 400) {
+        final location = response.headers['location'];
+        return LoginResponse(
+          success: false,
+          message:
+              'Login endpoint redirected (${status}). '
+                      'Use HTTPS base URL. '
+                      '${location != null ? 'Redirect target: $location' : ''}'
+                  .trim(),
+        );
+      }
+
+      Map<String, dynamic> responseData = {};
+      if (body.isNotEmpty) {
+        final decoded = jsonDecode(body);
+        if (decoded is Map<String, dynamic>) {
+          responseData = decoded;
+        } else {
+          return LoginResponse(
+            success: false,
+            message: 'Unexpected server response format',
+          );
+        }
+      }
+
       if (response.statusCode == 200) {
         final loginResponse = LoginResponse.fromJson(responseData);
 
@@ -88,7 +115,9 @@ class AuthApiService {
     } on FormatException {
       return LoginResponse(
         success: false,
-        message: 'Invalid server response format',
+        message:
+            'Invalid server response format. '
+            'Check that API_BASE_URL uses HTTPS in dev.',
       );
     } catch (e) {
       return LoginResponse(

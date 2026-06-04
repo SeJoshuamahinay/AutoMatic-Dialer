@@ -52,6 +52,7 @@ class _UpdateBorrowerContactViewState extends State<UpdateBorrowerContactView> {
   late final TextEditingController _phoneCtrl;
   late final TextEditingController _mobileCtrl;
   late final TextEditingController _houseNumberCtrl;
+  late final TextEditingController _streetCtrl;
   late final TextEditingController _postalCodeCtrl;
 
   @override
@@ -60,6 +61,7 @@ class _UpdateBorrowerContactViewState extends State<UpdateBorrowerContactView> {
     _phoneCtrl = TextEditingController(text: widget.phone ?? '');
     _mobileCtrl = TextEditingController(text: widget.mobile ?? '');
     _houseNumberCtrl = TextEditingController(text: widget.houseNumber ?? '');
+    _streetCtrl = TextEditingController(text: widget.street ?? '');
     _postalCodeCtrl = TextEditingController(text: widget.postalCode ?? '');
 
     _bloc.add(
@@ -77,6 +79,7 @@ class _UpdateBorrowerContactViewState extends State<UpdateBorrowerContactView> {
     _phoneCtrl.dispose();
     _mobileCtrl.dispose();
     _houseNumberCtrl.dispose();
+    _streetCtrl.dispose();
     _postalCodeCtrl.dispose();
     _bloc.close();
     super.dispose();
@@ -264,6 +267,7 @@ class _UpdateBorrowerContactViewState extends State<UpdateBorrowerContactView> {
       if ((widget.address ?? '').trim().isNotEmpty) 'address': widget.address,
       if (_nonEmpty(_houseNumberCtrl) != null)
         'house_number': _nonEmpty(_houseNumberCtrl),
+      if (_nonEmpty(_streetCtrl) != null) 'street': _nonEmpty(_streetCtrl),
       if (state.selectedBarangay.trim().isNotEmpty)
         'village': state.selectedBarangay,
       if (state.selectedCity.trim().isNotEmpty) 'city': state.selectedCity,
@@ -435,6 +439,7 @@ class _UpdateBorrowerContactViewState extends State<UpdateBorrowerContactView> {
                   ),
                   _displayField('Address (Combined)', _fullAddressDisplay()),
                   _textField('House Number', _houseNumberCtrl),
+                  _textField('Street', _streetCtrl),
                   _pickerField(
                     label: 'Region',
                     value: state.selectedRegion,
