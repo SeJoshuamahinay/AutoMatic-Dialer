@@ -1,8 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
-import 'package:lenderly_dialer/commons/services/environment_config.dart';
+import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 
 class FollowUpFormView extends StatefulWidget {
@@ -86,19 +85,10 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
 
   Future<void> _loadSubjects() async {
     try {
-      await EnvironmentConfig.initialize();
-      final baseUrl = EnvironmentConfig.apiBaseUrl;
-      final token = await SharedPrefsStorageService.getAuthToken();
-      final uri = Uri.parse('$baseUrl$_subjectsEndpoint');
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Authorization': 'Bearer $token',
-              'Accept': 'application/json',
-            },
-          )
-          .timeout(const Duration(seconds: 15));
+      final response = await ApiClient.get(
+        _subjectsEndpoint,
+        timeout: const Duration(seconds: 15),
+      );
       if (!mounted) return;
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       if (json['success'] == true && json['data'] is List) {
@@ -109,6 +99,8 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
         });
         return;
       }
+    } on AuthSessionExpiredException {
+      return; // ApiClient already navigated to /login
     } catch (_) {}
     if (mounted) setState(() => _isLoadingSubjects = false);
   }
@@ -180,15 +172,7 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
     setState(() => _isSubmitting = true);
 
     try {
-      await EnvironmentConfig.initialize();
-      final baseUrl = EnvironmentConfig.apiBaseUrl;
-      final token = await SharedPrefsStorageService.getAuthToken();
       final session = await SharedPrefsStorageService.getUserSession();
-
-      if (token == null || token.isEmpty) {
-        _showError('Authentication token missing.');
-        return;
-      }
 
       if (session == null) {
         _showError('User session not found. Please re-login.');
@@ -222,17 +206,7 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
         payload['message'] = _messageCtrl.text.trim();
       }
 
-      final uri = Uri.parse('$baseUrl$_lafuEndpoint');
-      final response = await http
-          .post(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode(payload),
-          )
-          .timeout(const Duration(seconds: 20));
+      final response = await ApiClient.post(_lafuEndpoint, body: payload);
 
       if (!mounted) return;
 
@@ -252,6 +226,8 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
         } catch (_) {}
         _showError(msg);
       }
+    } on AuthSessionExpiredException {
+      return; // ApiClient already navigated to /login
     } catch (e) {
       if (mounted) _showError('Error: $e');
     } finally {

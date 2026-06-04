@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'blocs/bloc_providers.dart';
 import 'commons/services/environment_config.dart';
 import 'commons/services/shared_prefs_storage_service.dart';
+import 'commons/services/api_client.dart';
 import 'views/auth_wrapper.dart';
 import 'views/login_view.dart';
 
@@ -84,6 +85,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Dialer App',
         debugShowCheckedModeBanner: false,
+        navigatorKey: ApiClient.navigatorKey,
         builder: (context, child) {
           // Enhanced error boundary for gesture-related errors
           return _GestureErrorWrapper(

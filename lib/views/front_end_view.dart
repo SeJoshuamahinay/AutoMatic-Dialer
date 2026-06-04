@@ -127,9 +127,9 @@ class _FrontEndViewState extends State<FrontEndView> {
     );
 
     try {
-      final borrowerId = await AccountsBucketService.getBorrowerIdForLoan(
-        r.loanId,
-      );
+      final borrowerId =
+          r.borrowerId ??
+          await AccountsBucketService.getBorrowerIdForLoan(r.loanId);
       if (!mounted) return;
       messenger.hideCurrentSnackBar();
       final result = await Navigator.of(context).push(

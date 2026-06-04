@@ -348,6 +348,7 @@ class AssignLoansRequest {
 /// Simple flat model matching the new /api/lenderly/dialer/data/{bucket} response
 class DialerLoanRecord {
   final int loanId;
+  final int? borrowerId;
   final String uniqueNumber;
   final String accountNumber;
   final String fullName;
@@ -363,6 +364,7 @@ class DialerLoanRecord {
 
   const DialerLoanRecord({
     required this.loanId,
+    this.borrowerId,
     required this.uniqueNumber,
     required this.accountNumber,
     required this.fullName,
@@ -383,6 +385,7 @@ class DialerLoanRecord {
     final lafu = json['last_lafu'] as Map<String, dynamic>?;
     return DialerLoanRecord(
       loanId: ApiParser.parseInt(json['loan_id']) ?? 0,
+      borrowerId: ApiParser.parseInt(json['borrower_id']),
       uniqueNumber: json['unique_number']?.toString() ?? '',
       accountNumber: json['account_number']?.toString() ?? '',
       fullName: json['full_name']?.toString() ?? 'Unknown',

@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
 import 'package:lenderly_dialer/commons/models/loan_models.dart';
+import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'package:lenderly_dialer/commons/services/environment_config.dart';
-import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 
 class AccountsBucketService {
   static const String _assignLoansEndpoint =
@@ -17,37 +16,15 @@ class AccountsBucketService {
   /// Assign loans to a user by posting user_id to the assign-loans endpoint
   static Future<AssignmentResponse> assignLoansToUser(String userId) async {
     try {
-      await EnvironmentConfig.initialize();
-
-      final baseUrl = EnvironmentConfig.apiBaseUrl;
-      if (baseUrl.isEmpty) {
-        throw Exception('API base URL is not configured');
-      }
-
-      final url = Uri.parse('$baseUrl$_assignLoansEndpoint');
-      final token = await SharedPrefsStorageService.getAuthToken();
-
-      if (token == null || token.isEmpty) {
-        throw Exception('Authentication token is missing');
-      }
-
       final request = AssignLoansRequest(userId: userId);
 
       if (EnvironmentConfig.enableLogging) {}
 
-      final response = await http
-          .post(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode(request.toJson()),
-          )
-          .timeout(
-            const Duration(seconds: 30),
-            onTimeout: () => throw Exception('Request timeout'),
-          );
+      final response = await ApiClient.post(
+        _assignLoansEndpoint,
+        body: request.toJson(),
+        timeout: const Duration(seconds: 30),
+      );
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -76,6 +53,12 @@ class AccountsBucketService {
           error: errorMessage,
         );
       }
+    } on AuthSessionExpiredException {
+      return AssignmentResponse(
+        success: false,
+        message: 'Session expired. Please log in again.',
+        error: 'Session expired',
+      );
     } on SocketException catch (e) {
       final errorMessage = 'Network error: ${e.message}';
       if (EnvironmentConfig.enableLogging) {}
@@ -106,34 +89,12 @@ class AccountsBucketService {
   /// Get assigned loans for a user from the user-loans endpoint
   static Future<AssignmentResponse> getUserAssignedLoans(String userId) async {
     try {
-      await EnvironmentConfig.initialize();
-
-      final baseUrl = EnvironmentConfig.apiBaseUrl;
-      if (baseUrl.isEmpty) {
-        throw Exception('API base URL is not configured');
-      }
-
-      final url = Uri.parse('$baseUrl$_userLoansEndpoint?user_id=$userId');
-      final token = await SharedPrefsStorageService.getAuthToken();
-
-      if (token == null || token.isEmpty) {
-        throw Exception('Authentication token is missing');
-      }
-
       if (EnvironmentConfig.enableLogging) {}
 
-      final response = await http
-          .get(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(
-            const Duration(seconds: 30),
-            onTimeout: () => throw Exception('Request timeout'),
-          );
+      final response = await ApiClient.get(
+        '$_userLoansEndpoint?user_id=${Uri.encodeQueryComponent(userId)}',
+        timeout: const Duration(seconds: 30),
+      );
 
       if (EnvironmentConfig.enableLogging) {}
 
@@ -166,6 +127,12 @@ class AccountsBucketService {
           error: errorMessage,
         );
       }
+    } on AuthSessionExpiredException {
+      return AssignmentResponse(
+        success: false,
+        message: 'Session expired. Please log in again.',
+        error: 'Session expired',
+      );
     } on SocketException catch (e) {
       final errorMessage = 'Network error: ${e.message}';
       if (EnvironmentConfig.enableLogging) {}
@@ -237,28 +204,10 @@ class AccountsBucketService {
     String bucket,
   ) async {
     try {
-      await EnvironmentConfig.initialize();
-
-      final baseUrl = EnvironmentConfig.apiBaseUrl;
-      if (baseUrl.isEmpty) throw Exception('API base URL is not configured');
-
-      final url = Uri.parse(
-        '$baseUrl$_dialerDataEndpoint/$bucket?user_id=$userId',
+      final response = await ApiClient.get(
+        '$_dialerDataEndpoint/$bucket?user_id=${Uri.encodeQueryComponent(userId)}',
+        timeout: const Duration(seconds: 60),
       );
-      final token = await SharedPrefsStorageService.getAuthToken();
-      if (token == null || token.isEmpty) {
-        throw Exception('Authentication token is missing');
-      }
-
-      final response = await http
-          .get(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
@@ -284,6 +233,8 @@ class AccountsBucketService {
       } else {
         throw Exception('HTTP ${response.statusCode}');
       }
+    } on AuthSessionExpiredException {
+      rethrow;
     } catch (e) {
       rethrow;
     }
@@ -293,26 +244,10 @@ class AccountsBucketService {
   /// Calls GET /api/lenderly/dialer/stats?user_id={userId}
   static Future<Map<String, dynamic>> getDialerStats(String userId) async {
     try {
-      await EnvironmentConfig.initialize();
-
-      final baseUrl = EnvironmentConfig.apiBaseUrl;
-      if (baseUrl.isEmpty) throw Exception('API base URL is not configured');
-
-      final url = Uri.parse('$baseUrl$_dialerStatsEndpoint?user_id=$userId');
-      final token = await SharedPrefsStorageService.getAuthToken();
-      if (token == null || token.isEmpty) {
-        throw Exception('Authentication token is missing');
-      }
-
-      final response = await http
-          .get(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 30));
+      final response = await ApiClient.get(
+        '$_dialerStatsEndpoint?user_id=${Uri.encodeQueryComponent(userId)}',
+        timeout: const Duration(seconds: 30),
+      );
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -324,6 +259,8 @@ class AccountsBucketService {
       } else {
         throw Exception('HTTP ${response.statusCode}');
       }
+    } on AuthSessionExpiredException {
+      rethrow;
     } catch (e) {
       rethrow;
     }
@@ -331,25 +268,10 @@ class AccountsBucketService {
 
   /// Fetch borrower_id for a given loan from the loan detail endpoint.
   static Future<int> getBorrowerIdForLoan(int loanId) async {
-    await EnvironmentConfig.initialize();
-    final baseUrl = EnvironmentConfig.apiBaseUrl;
-    if (baseUrl.isEmpty) throw Exception('API base URL is not configured');
-
-    final token = await SharedPrefsStorageService.getAuthToken();
-    if (token == null || token.isEmpty) {
-      throw Exception('Authentication token is missing');
-    }
-
-    final url = Uri.parse('$baseUrl$_loanDetailEndpoint/$loanId');
-    final response = await http
-        .get(
-          url,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-        )
-        .timeout(const Duration(seconds: 15));
+    final response = await ApiClient.get(
+      '$_loanDetailEndpoint/$loanId',
+      timeout: const Duration(seconds: 15),
+    );
 
     if (response.statusCode == 200) {
       final json = jsonDecode(response.body) as Map<String, dynamic>;

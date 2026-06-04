@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lenderly_dialer/commons/reusables/toast.dart';
 import '../blocs/break/break_bloc.dart';
@@ -20,6 +21,7 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   UserSession? userSession;
+  String? _authToken;
 
   @override
   void initState() {
@@ -32,9 +34,11 @@ class _SettingsViewState extends State<SettingsView> {
   Future<void> _loadUserSession() async {
     try {
       final session = await SharedPrefsStorageService.getUserSession();
+      final token = await SharedPrefsStorageService.getAuthToken();
       if (mounted) {
         setState(() {
           userSession = session;
+          _authToken = token;
         });
       }
     } catch (e) {
@@ -276,17 +280,6 @@ class _SettingsViewState extends State<SettingsView> {
                 },
               ),
             ),
-            // const Divider(),
-            // ListTile(
-            //   leading: const Icon(Icons.speed),
-            //   title: const Text('Auto-Dial Speed'),
-            //   subtitle: const Text('Set time between calls'),
-            //   trailing: const Icon(Icons.chevron_right),
-            //   onTap: () {
-            //     // Navigate to auto-dial settings
-            //   },
-            // ),
-            // const Divider(),
           ],
         ),
       ),
@@ -361,6 +354,65 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 16),
             ],
+
+            // Debug: auth token display
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.key, size: 14, color: Colors.grey),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Auth Token (Debug)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_authToken != null)
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: _authToken!));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Token copied!'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          child: const Icon(
+                            Icons.copy,
+                            size: 14,
+                            color: Colors.purple,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _authToken ?? 'No token found',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: _authToken != null ? Colors.black87 : Colors.red,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
 
             ListTile(
               leading: const Icon(Icons.person),

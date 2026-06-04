@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:lenderly_dialer/commons/services/environment_config.dart';
-import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
+import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'follow_up_form_view.dart';
+import 'update_borrower_contact_view.dart';
 
 // ── Models ────────────────────────────────────────────────────────────────────
 
@@ -24,8 +23,19 @@ class LoanDetail {
   final String? borrowerName;
   final String? borrowerPhone;
   final String? borrowerMobile;
+  final int? borrowerCountryId;
   final String? borrowerEmail;
   final String? borrowerAddress;
+  final String? countryCode;
+  final String? houseNumber;
+  final String? street;
+  final String? village;
+  final String? city;
+  final String? state;
+  final String? province;
+  final String? region;
+  final String? postalCode;
+  final String? zip;
   final int? coSignerId;
   final String? coSignerName;
   final String? coSignerPhone;
@@ -45,8 +55,19 @@ class LoanDetail {
     this.borrowerName,
     this.borrowerPhone,
     this.borrowerMobile,
+    this.borrowerCountryId,
     this.borrowerEmail,
     this.borrowerAddress,
+    this.countryCode,
+    this.houseNumber,
+    this.street,
+    this.village,
+    this.city,
+    this.state,
+    this.province,
+    this.region,
+    this.postalCode,
+    this.zip,
     this.coSignerId,
     this.coSignerName,
     this.coSignerPhone,
@@ -67,11 +88,24 @@ class LoanDetail {
       borrowerId: j['borrower_id'] != null
           ? (j['borrower_id'] as num).toInt()
           : null,
-      borrowerName: j['borrower_name']?.toString(),
-      borrowerPhone: j['borrower_phone']?.toString(),
-      borrowerMobile: j['borrower_mobile']?.toString(),
-      borrowerEmail: j['borrower_email']?.toString(),
-      borrowerAddress: j['borrower_address']?.toString(),
+      borrowerName: (j['borrower_name'] ?? j['full_name'])?.toString(),
+      borrowerPhone: (j['borrower_phone'] ?? j['phone'])?.toString(),
+      borrowerMobile: (j['borrower_mobile'] ?? j['mobile'])?.toString(),
+      borrowerCountryId: (j['borrower_country_id'] as num?)?.toInt(),
+      borrowerEmail: (j['borrower_email'] ?? j['email'])?.toString(),
+      borrowerAddress: (j['borrower_address'] ?? j['address'])?.toString(),
+      countryCode: (j['borrower_country_code'] ?? j['country_code'])
+          ?.toString(),
+      houseNumber: (j['borrower_house_number'] ?? j['house_number'])
+          ?.toString(),
+      street: (j['borrower_street'] ?? j['street'])?.toString(),
+      village: (j['borrower_village'] ?? j['village'])?.toString(),
+      city: (j['borrower_city'] ?? j['city'])?.toString(),
+      state: (j['borrower_state'] ?? j['state'])?.toString(),
+      province: (j['borrower_province'] ?? j['province'])?.toString(),
+      region: (j['borrower_region'] ?? j['region'])?.toString(),
+      postalCode: (j['borrower_postal_code'] ?? j['postal_code'])?.toString(),
+      zip: (j['borrower_zip'] ?? j['zip'])?.toString(),
       coSignerId: j['co_signer_id'] != null
           ? (j['co_signer_id'] as num).toInt()
           : null,
@@ -221,28 +255,7 @@ class _LoanDetailViewState extends State<LoanDetailView>
     });
 
     try {
-      await EnvironmentConfig.initialize();
-      final baseUrl = EnvironmentConfig.apiBaseUrl;
-      final token = await SharedPrefsStorageService.getAuthToken();
-
-      if (token == null || token.isEmpty) {
-        setState(() {
-          _errorMessage = 'Authentication token missing.';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      final uri = Uri.parse('$baseUrl$_detailEndpoint/${widget.loanId}');
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 20));
+      final response = await ApiClient.get('$_detailEndpoint/${widget.loanId}');
 
       if (!mounted) return;
 
@@ -273,6 +286,8 @@ class _LoanDetailViewState extends State<LoanDetailView>
           _isLoading = false;
         });
       }
+    } on AuthSessionExpiredException {
+      return;
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -324,6 +339,45 @@ class _LoanDetailViewState extends State<LoanDetailView>
     );
     if (result == true) {
       // Reload to refresh follow-ups list
+      _loadDetail();
+    }
+  }
+
+  void _openUpdateContactForm() async {
+    if (_loan == null || _loan!.borrowerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Borrower ID is missing for this loan.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UpdateBorrowerContactView(
+          borrowerId: _loan!.borrowerId!,
+          borrowerName: _loan!.borrowerName,
+          phone: _loan!.borrowerPhone,
+          mobile: _loan!.borrowerMobile,
+          borrowerCountryId: _loan!.borrowerCountryId,
+          countryCode: _loan!.countryCode,
+          address: _loan!.borrowerAddress,
+          houseNumber: _loan!.houseNumber,
+          street: _loan!.street,
+          village: _loan!.village,
+          city: _loan!.city,
+          state: _loan!.state,
+          province: _loan!.province,
+          region: _loan!.region,
+          postalCode: _loan!.postalCode,
+        ),
+      ),
+    );
+
+    if (result == true) {
       _loadDetail();
     }
   }
@@ -828,12 +882,28 @@ class _LoanDetailViewState extends State<LoanDetailView>
             ),
       floatingActionButton: _loan == null
           ? null
-          : FloatingActionButton.extended(
-              onPressed: _openFollowUpForm,
-              backgroundColor: Colors.indigo,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.note_add),
-              label: const Text('Add Follow-up'),
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FloatingActionButton.extended(
+                  heroTag: 'update_contact_btn',
+                  onPressed: _openUpdateContactForm,
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  icon: const Icon(Icons.edit_location_alt),
+                  label: const Text('Update Contact'),
+                ),
+                const SizedBox(height: 10),
+                FloatingActionButton.extended(
+                  heroTag: 'add_followup_btn',
+                  onPressed: _openFollowUpForm,
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                  icon: const Icon(Icons.note_add),
+                  label: const Text('Add Follow-up'),
+                ),
+              ],
             ),
     );
   }

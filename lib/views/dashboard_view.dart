@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_bloc.dart';
 import 'package:lenderly_dialer/blocs/auth/auth_event.dart';
@@ -11,6 +15,11 @@ import 'package:lenderly_dialer/commons/models/auth_models.dart';
 import 'package:lenderly_dialer/commons/models/break_session_model.dart';
 import 'package:lenderly_dialer/commons/models/call_log_model.dart';
 import 'package:lenderly_dialer/commons/reusables/toast.dart';
+import 'package:lenderly_dialer/commons/services/api_client.dart';
+import 'package:lenderly_dialer/commons/services/environment_config.dart';
+import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
+import 'package:lenderly_dialer/views/attendance_request_view.dart';
+import 'package:lenderly_dialer/views/visitation_request_view.dart';
 
 class DashboardView extends StatefulWidget {
   const DashboardView({super.key});
@@ -21,6 +30,7 @@ class DashboardView extends StatefulWidget {
 
 class _DashboardViewState extends State<DashboardView> {
   final NumberFormat _amountFmt = NumberFormat('#,##0.00', 'en_PH');
+  final ImagePicker _imagePicker = ImagePicker();
   late DateTime _now;
   Timer? _clockTimer;
 
@@ -156,6 +166,790 @@ class _DashboardViewState extends State<DashboardView> {
     return '${d.inMinutes}m';
   }
 
+  Widget _quickActionsSection() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Quick Actions',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Tap an action to prepare a draft. Backend fields can be wired later.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _quickActionCard(
+                title: 'Visitation',
+                subtitle: 'DL, CI, house, reminder, tracing',
+                icon: Icons.route,
+                color: const Color(0xFF0F3D3E),
+                onTap: _openVisitationRequestPage,
+              ),
+              _quickActionCard(
+                title: 'Time In',
+                subtitle: 'Selfie + GPS required',
+                icon: Icons.login,
+                color: const Color(0xFF16A34A),
+                onTap: _openTimeInPage,
+              ),
+              _quickActionCard(
+                title: 'Time Out',
+                subtitle: 'Time in and out summary',
+                icon: Icons.logout,
+                color: const Color(0xFFF59E0B),
+                onTap: _openTimeOutPage,
+              ),
+              _quickActionCard(
+                title: 'Reimbursement',
+                subtitle: 'Request draft only',
+                icon: Icons.receipt_long,
+                color: const Color(0xFF8B5CF6),
+                onTap: _openReimbursementActionSheet,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickActionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [color, color.withValues(alpha: 0.82)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: Colors.white),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<Position?> _getCurrentPosition() async {
+    final enabled = await Geolocator.isLocationServiceEnabled();
+    if (!enabled) {
+      _showSnack('Location service is off.', isError: true);
+      return null;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      _showSnack('Location permission needed.', isError: true);
+      return null;
+    }
+
+    return Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+  }
+
+  String _positionLabel(Position pos) {
+    return '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}';
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+      ),
+    );
+  }
+
+  Widget _draftRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 88,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF334155),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Color(0xFF0F172A)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<XFile?> _captureSelfie() async {
+    try {
+      return await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front,
+        imageQuality: 80,
+      );
+    } catch (e) {
+      _showSnack('Camera not available: $e', isError: true);
+      return null;
+    }
+  }
+
+  Future<XFile?> _captureProof() async {
+    try {
+      return await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80,
+      );
+    } catch (e) {
+      _showSnack('Camera not available: $e', isError: true);
+      return null;
+    }
+  }
+
+  Future<int?> _resolveUserId() async {
+    final session = await SharedPrefsStorageService.getUserSession();
+    if (session?.userId != null) return session!.userId;
+    _showSnack('User session missing. Please login again.', isError: true);
+    return null;
+  }
+
+  String _extractApiMessage(httpBody, int statusCode, String fallback) {
+    if (httpBody == null || httpBody.isEmpty) {
+      return '$fallback (HTTP $statusCode)';
+    }
+    try {
+      final body = jsonDecode(httpBody) as Map<String, dynamic>;
+      final errors = body['errors'];
+      if (errors is Map<String, dynamic>) {
+        for (final entry in errors.entries) {
+          final value = entry.value;
+          if (value is List && value.isNotEmpty) {
+            final first = value.first?.toString();
+            if (first != null && first.trim().isNotEmpty) {
+              return first;
+            }
+          }
+          if (value is String && value.trim().isNotEmpty) {
+            return value;
+          }
+        }
+      }
+      final msg = body['message']?.toString();
+      if (msg != null && msg.trim().isNotEmpty) return msg;
+    } catch (_) {}
+    return '$fallback (HTTP $statusCode)';
+  }
+
+  Future<http.Response> _postAttendanceMultipart(
+    String endpoint, {
+    required Map<String, String> fields,
+    XFile? attachment,
+  }) async {
+    final token = await SharedPrefsStorageService.getAuthToken();
+    final uri = Uri.parse('${EnvironmentConfig.apiBaseUrl}$endpoint');
+    final request = http.MultipartRequest('POST', uri)
+      ..headers['Accept'] = 'application/json'
+      ..fields.addAll(fields);
+
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    if (attachment != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath('attachment', attachment.path),
+      );
+    }
+
+    final streamResponse = await request.send();
+    return http.Response.fromStream(streamResponse);
+  }
+
+  Future<bool> _submitTimeIn(
+    Position location, {
+    required String attendanceType,
+    required String remarks,
+    XFile? attachment,
+  }) async {
+    final userId = await _resolveUserId();
+    if (userId == null) return false;
+
+    try {
+      final response = attachment == null
+          ? await ApiClient.post(
+              '/api/attendance/time-in',
+              body: {
+                'user_id': userId,
+                'latitude': location.latitude,
+                'longiturede': location.longitude,
+                'attendance_type': attendanceType,
+                if (remarks.trim().isNotEmpty) 'remarks': remarks.trim(),
+              },
+            )
+          : await _postAttendanceMultipart(
+              '/api/attendance/time-in',
+              fields: {
+                'user_id': userId.toString(),
+                'latitude': location.latitude.toString(),
+                'longiturede': location.longitude.toString(),
+                'attendance_type': attendanceType,
+                if (remarks.trim().isNotEmpty) 'remarks': remarks.trim(),
+              },
+              attachment: attachment,
+            );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        _showSnack('Time-in recorded.');
+        return true;
+      }
+
+      _showSnack(
+        _extractApiMessage(
+          response.body,
+          response.statusCode,
+          'Failed to record time-in',
+        ),
+        isError: true,
+      );
+      return false;
+    } catch (e) {
+      _showSnack('Time-in failed: $e', isError: true);
+      return false;
+    }
+  }
+
+  Future<bool> _submitTimeOut(
+    Position location, {
+    required String attendanceType,
+    required String remarks,
+    XFile? attachment,
+  }) async {
+    final userId = await _resolveUserId();
+    if (userId == null) return false;
+
+    try {
+      final response = attachment == null
+          ? await ApiClient.post(
+              '/api/attendance/time-out',
+              body: {
+                'user_id': userId,
+                'latitude': location.latitude,
+                'longiturede': location.longitude,
+                'attendance_type': attendanceType,
+                if (remarks.trim().isNotEmpty) 'remarks': remarks.trim(),
+              },
+            )
+          : await _postAttendanceMultipart(
+              '/api/attendance/time-out',
+              fields: {
+                'user_id': userId.toString(),
+                'latitude': location.latitude.toString(),
+                'longiturede': location.longitude.toString(),
+                'attendance_type': attendanceType,
+                if (remarks.trim().isNotEmpty) 'remarks': remarks.trim(),
+              },
+              attachment: attachment,
+            );
+
+      if (response.statusCode == 200) {
+        _showSnack('Time-out recorded.');
+        return true;
+      }
+
+      _showSnack(
+        _extractApiMessage(
+          response.body,
+          response.statusCode,
+          'Failed to record time-out',
+        ),
+        isError: true,
+      );
+      return false;
+    } catch (e) {
+      _showSnack('Time-out failed: $e', isError: true);
+      return false;
+    }
+  }
+
+  Future<void> _openVisitationRequestPage() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const VisitationRequestView()),
+    );
+
+    if (!mounted || created != true) return;
+    _showSnack('Visitation request submitted.');
+  }
+
+  Future<void> _openTimeInPage() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AttendanceRequestView(action: AttendanceAction.timeIn),
+      ),
+    );
+  }
+
+  Future<void> _openTimeOutPage() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AttendanceRequestView(action: AttendanceAction.timeOut),
+      ),
+    );
+  }
+
+  // ignore: unused_element
+  Future<void> _openTimeInActionSheet() async {
+    final location = await _getCurrentPosition();
+    if (!mounted) return;
+
+    XFile? selfie = await _captureSelfie();
+    if (!mounted) return;
+
+    final now = DateTime.now();
+    final notesController = TextEditingController();
+    String attendanceType = 'onsite';
+    bool isSubmitting = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Time In',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _draftRow(
+                      'Time In',
+                      DateFormat('yyyy-MM-dd hh:mm a').format(now),
+                    ),
+                    _draftRow(
+                      'Location',
+                      location == null
+                          ? 'Pending location'
+                          : _positionLabel(location),
+                    ),
+                    _draftRow(
+                      'Selfie',
+                      selfie == null ? 'No photo' : selfie!.name,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: attendanceType,
+                      decoration: const InputDecoration(
+                        labelText: 'Attendance Type',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'onsite',
+                          child: Text('Onsite'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'remote',
+                          child: Text('Remote'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setSheetState(() => attendanceType = v);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: notesController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Remarks',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              final nextSelfie = await _captureSelfie();
+                              if (!mounted) return;
+                              if (nextSelfie != null) {
+                                setSheetState(() => selfie = nextSelfie);
+                              }
+                            },
+                            child: const Text('Retake Selfie'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    if (location == null) {
+                                      _showSnack(
+                                        'Location is required. Enable GPS then retry.',
+                                        isError: true,
+                                      );
+                                      return;
+                                    }
+                                    if (selfie == null) {
+                                      _showSnack(
+                                        'Selfie attachment is required for Time In.',
+                                        isError: true,
+                                      );
+                                      return;
+                                    }
+                                    setSheetState(() => isSubmitting = true);
+                                    final ok = await _submitTimeIn(
+                                      location,
+                                      attendanceType: attendanceType,
+                                      remarks: notesController.text,
+                                      attachment: selfie,
+                                    );
+                                    if (!mounted) return;
+                                    setSheetState(() => isSubmitting = false);
+                                    if (!ok) return;
+                                    Navigator.pop(context);
+                                  },
+                            child: Text(
+                              isSubmitting ? 'Submitting...' : 'Submit Time In',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Time in requires selfie/photo and geolocation.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    notesController.dispose();
+  }
+
+  // ignore: unused_element
+  Future<void> _openTimeOutActionSheet() async {
+    final location = await _getCurrentPosition();
+    if (!mounted) return;
+
+    final now = DateTime.now();
+    XFile? proof;
+
+    final notesController = TextEditingController();
+    String attendanceType = 'onsite';
+    bool isSubmitting = false;
+    final timeInText = DateFormat(
+      'yyyy-MM-dd hh:mm a',
+    ).format(now.subtract(const Duration(hours: 8)));
+    final timeOutText = DateFormat('yyyy-MM-dd hh:mm a').format(now);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Time Out',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _draftRow('Time In', timeInText),
+                    _draftRow('Time Out', timeOutText),
+                    _draftRow(
+                      'Location',
+                      location == null
+                          ? 'Pending location'
+                          : _positionLabel(location),
+                    ),
+                    _draftRow(
+                      'Attachment',
+                      proof == null ? 'No photo' : proof!.name,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: attendanceType,
+                      decoration: const InputDecoration(
+                        labelText: 'Attendance Type',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'onsite',
+                          child: Text('Onsite'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'remote',
+                          child: Text('Remote'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setSheetState(() => attendanceType = v);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: notesController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Remarks',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton(
+                        onPressed: () async {
+                          final next = await _captureProof();
+                          if (!mounted) return;
+                          if (next != null) {
+                            setSheetState(() => proof = next);
+                          }
+                        },
+                        child: const Text('Retake Attachment'),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isSubmitting
+                            ? null
+                            : () async {
+                                if (location == null) {
+                                  _showSnack(
+                                    'Location is required. Enable GPS then retry.',
+                                    isError: true,
+                                  );
+                                  return;
+                                }
+                                setSheetState(() => isSubmitting = true);
+                                final ok = await _submitTimeOut(
+                                  location,
+                                  attendanceType: attendanceType,
+                                  remarks: notesController.text,
+                                  attachment: proof,
+                                );
+                                if (!mounted) return;
+                                setSheetState(() => isSubmitting = false);
+                                if (!ok) return;
+                                Navigator.pop(context);
+                              },
+                        child: Text(
+                          isSubmitting ? 'Submitting...' : 'Submit Time Out',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Time out keeps both time in and time out visible for backend mapping.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    notesController.dispose();
+  }
+
+  Future<void> _openReimbursementActionSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Reimbursement Request',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Reason',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Receipt / Attachment Ref',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showSnack('Reimbursement draft ready.');
+                    },
+                    child: const Text('Prepare Draft'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Add backend fields later for amount, reason, and attachment.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -187,27 +981,6 @@ class _DashboardViewState extends State<DashboardView> {
         listener: _onStateChanged,
         builder: (context, state) {
           final d = _data(state);
-          final totalCalls = _asInt(
-            d.dailyStats['total_calls'],
-            fallback: d.callLogs.length,
-          );
-          final connected = _asInt(
-            d.dailyStats['successful_calls'],
-            fallback: d.callLogs
-                .where((e) => e.status == CallStatus.complete)
-                .length,
-          );
-          final noAnswer = _asInt(
-            d.dailyStats['no_answer_calls'],
-            fallback: d.callLogs
-                .where((e) => e.status == CallStatus.noAnswer)
-                .length,
-          );
-          final breakTime = d.breakSessions.fold<Duration>(
-            Duration.zero,
-            (sum, s) => sum + s.actualDuration,
-          );
-
           final totalLoans = _asInt(d.dialerStats?['total_loans']);
           final totalOutstanding = _asDouble(
             d.dialerStats?['total_outstanding'],
@@ -222,13 +995,7 @@ class _DashboardViewState extends State<DashboardView> {
               children: [
                 _timeHero(d.userSession, d.selectedDate),
                 const SizedBox(height: 12),
-                _kpiGrid(
-                  totalCalls,
-                  connected,
-                  noAnswer,
-                  _formatDuration(breakTime),
-                  d.isLoadingData,
-                ),
+                _quickActionsSection(),
                 const SizedBox(height: 12),
                 _portfolioCard(
                   totalLoans,
@@ -308,97 +1075,6 @@ class _DashboardViewState extends State<DashboardView> {
             child: Text(
               'Selected: ${DateFormat('EEE, MMM d, y').format(selectedDate)}',
               style: const TextStyle(color: Colors.white, fontSize: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _kpiGrid(
-    int totalCalls,
-    int connected,
-    int noAnswer,
-    String breakTime,
-    bool isLoading,
-  ) {
-    if (isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
-    return GridView.count(
-      crossAxisCount: 2,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: 1.7,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      children: [
-        _kpiTile(
-          'Total Calls',
-          '$totalCalls',
-          Icons.call,
-          const Color(0xFF3B82F6),
-        ),
-        _kpiTile(
-          'Connected',
-          '$connected',
-          Icons.check_circle,
-          const Color(0xFF16A34A),
-        ),
-        _kpiTile(
-          'No Answer',
-          '$noAnswer',
-          Icons.phone_missed,
-          const Color(0xFFF59E0B),
-        ),
-        _kpiTile(
-          'Break Time',
-          breakTime,
-          Icons.free_breakfast,
-          const Color(0xFF8B5CF6),
-        ),
-      ],
-    );
-  }
-
-  Widget _kpiTile(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ],
             ),
           ),
         ],

@@ -26,8 +26,8 @@ class _MainNavigationViewState extends State<MainNavigationView> {
     return [
       const FrontEndView(),
       const HardcoreView(),
-      const SearchLoanView(),
       const DashboardView(),
+      const SearchLoanView(),
       const SettingsView(),
     ];
   }
@@ -47,7 +47,15 @@ class _MainNavigationViewState extends State<MainNavigationView> {
         title: "Hardcore",
         activeColorPrimary: Colors.red,
         inactiveColorPrimary: Colors.grey,
-        activeColorSecondary: Colors.blueAccent,
+        activeColorSecondary: Colors.red,
+        inactiveColorSecondary: Colors.grey,
+      ),
+      PersistentBottomNavBarItem(
+        icon: const Icon(Icons.dashboard),
+        title: "Dashboard",
+        activeColorPrimary: const Color.fromARGB(255, 12, 134, 150),
+        inactiveColorPrimary: Colors.grey,
+        activeColorSecondary: const Color.fromARGB(255, 12, 134, 150),
         inactiveColorSecondary: Colors.grey,
       ),
       PersistentBottomNavBarItem(
@@ -58,14 +66,7 @@ class _MainNavigationViewState extends State<MainNavigationView> {
         activeColorSecondary: Colors.indigoAccent,
         inactiveColorSecondary: Colors.grey,
       ),
-      PersistentBottomNavBarItem(
-        icon: const Icon(Icons.dashboard),
-        title: "Dashboard",
-        activeColorPrimary: Colors.green,
-        inactiveColorPrimary: Colors.grey,
-        activeColorSecondary: Colors.blueAccent,
-        inactiveColorSecondary: Colors.grey,
-      ),
+
       PersistentBottomNavBarItem(
         icon: const Icon(Icons.settings),
         title: "Settings",

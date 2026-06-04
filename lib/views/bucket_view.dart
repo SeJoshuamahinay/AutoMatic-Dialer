@@ -42,10 +42,6 @@ class _BucketViewState extends State<BucketView> {
           widget.bucketType,
         );
       }
-      // _statistics = AccountsBucketService.getBucketStatistics(
-      //   widget.assignmentData,
-      //   widget.bucketType,
-      // );
     });
   }
 

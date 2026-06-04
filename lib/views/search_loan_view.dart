@@ -2,9 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
-import 'package:http/http.dart' as http;
-import 'package:lenderly_dialer/commons/services/environment_config.dart';
-import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
+import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'follow_up_form_view.dart';
 import 'loan_detail_view.dart';
 
@@ -12,6 +10,7 @@ import 'loan_detail_view.dart';
 
 class SearchResult {
   final int loanId;
+  final int? borrowerId;
   final String? uniqueNumber;
   final String? accountNumber;
   final String? fullName;
@@ -20,6 +19,7 @@ class SearchResult {
 
   const SearchResult({
     required this.loanId,
+    this.borrowerId,
     this.uniqueNumber,
     this.accountNumber,
     this.fullName,
@@ -30,6 +30,7 @@ class SearchResult {
   factory SearchResult.fromJson(Map<String, dynamic> json) {
     return SearchResult(
       loanId: (json['loan_id'] as num).toInt(),
+      borrowerId: (json['borrower_id'] as num?)?.toInt(),
       uniqueNumber: json['unique_number']?.toString(),
       accountNumber: json['account_number']?.toString(),
       fullName: json['full_name']?.toString(),
@@ -98,31 +99,9 @@ class _SearchLoanViewState extends State<SearchLoanView> {
     });
 
     try {
-      await EnvironmentConfig.initialize();
-      final baseUrl = EnvironmentConfig.apiBaseUrl;
-      final token = await SharedPrefsStorageService.getAuthToken();
-
-      if (token == null || token.isEmpty) {
-        setState(() {
-          _errorMessage = 'Authentication token missing. Please log in again.';
-          _isSearching = false;
-        });
-        return;
-      }
-
-      final uri = Uri.parse(
-        '$baseUrl$_searchEndpoint',
-      ).replace(queryParameters: {'q': query});
-
-      final response = await http
-          .get(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 20));
+      final queryEndpoint =
+          '$_searchEndpoint?q=${Uri.encodeQueryComponent(query)}';
+      final response = await ApiClient.get(queryEndpoint);
 
       if (!mounted) return;
 
@@ -146,6 +125,8 @@ class _SearchLoanViewState extends State<SearchLoanView> {
           _isSearching = false;
         });
       }
+    } on AuthSessionExpiredException {
+      return;
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -200,13 +181,23 @@ class _SearchLoanViewState extends State<SearchLoanView> {
   }
 
   void _openFollowUp(SearchResult result) {
+    final borrowerId = result.borrowerId;
+    if (borrowerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Borrower ID missing for this record.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => FollowUpFormView(
           loanId: result.loanId,
-          borrowerId:
-              0, // borrower_id not in search result; detail view will fetch it
+          borrowerId: borrowerId,
           borrowerName: result.fullName,
         ),
       ),
