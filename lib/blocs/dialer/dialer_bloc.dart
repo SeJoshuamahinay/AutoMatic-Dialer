@@ -7,6 +7,7 @@ import '../../commons/models/call_contact_model.dart';
 import '../../commons/models/loan_models.dart';
 import '../../commons/models/call_log_model.dart';
 import '../../commons/services/accounts_bucket_service.dart';
+import '../../commons/services/call_log_service.dart';
 import '../../commons/services/dialer_database_integration.dart';
 import '../../commons/services/shared_prefs_storage_service.dart';
 import 'dialer_event.dart';
@@ -15,11 +16,13 @@ import 'dialer_state.dart' as state;
 class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
   final BaseRepository _repository;
   final DialerDatabaseIntegration _dbIntegration = DialerDatabaseIntegration();
+  final CallLogService _callLogService = CallLogService();
 
   List<CallContact> _currentQueue = [];
   int _currentIndex = 0;
   int? _currentSessionId;
   int? _currentCallLogId;
+  int? _currentRemoteCallLogId;
   DateTime? _currentCallStartTime;
 
   // User session data
@@ -210,6 +213,7 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
 
     // Log call start to database
     _currentCallStartTime = DateTime.now();
+    _currentRemoteCallLogId = null;
     try {
       _currentCallLogId = await _dbIntegration.logCallStart(
         contact: contact,
@@ -252,13 +256,14 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
       if (_currentIndex >= _currentQueue.length) return;
 
       final contact = _currentQueue[_currentIndex];
+      final callEndTime = DateTime.now();
+      final callDuration = _currentCallStartTime != null
+          ? callEndTime.difference(_currentCallStartTime!)
+          : Duration.zero;
 
       // Log call end to database
       if (_currentCallLogId != null && _currentCallStartTime != null) {
         try {
-          final callDuration = DateTime.now().difference(
-            _currentCallStartTime!,
-          );
           await _dbIntegration.logCallEnd(
             callLogId: _currentCallLogId!,
             callDuration: callDuration,
@@ -273,6 +278,25 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
 
       // Mark contact as called in repository
       await _repository.updateContact(contact.id!, 'called', null);
+
+      // Post remote call log immediately after call stops.
+      try {
+        final loanId = contact.loanId;
+        if (loanId != null) {
+          final borrowerId = await AccountsBucketService.getBorrowerIdForLoan(
+            loanId,
+          );
+          _currentRemoteCallLogId = await _callLogService.createRemoteCallLog(
+            userId: _userId,
+            borrowerId: borrowerId,
+            loanId: loanId,
+            timeRendered: callEndTime,
+            callStatus: CallStatus.called.value,
+          );
+        }
+      } catch (e) {
+        // Remote call-log failures must not block dialer flow.
+      }
 
       final remainingContacts = _currentQueue.sublist(_currentIndex + 1);
       final totalCount = _currentQueue.length;
@@ -324,6 +348,19 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
           // Continue even if database update fails
         }
       } else {}
+
+      // Update remote log with final status/note if log id was created.
+      try {
+        if (_currentRemoteCallLogId != null) {
+          await _callLogService.updateRemoteCallLog(_currentRemoteCallLogId!, {
+            'status': event.status.value,
+            'notes': event.note,
+            'time_rendered': DateTime.now().toIso8601String(),
+          });
+        }
+      } catch (e) {
+        // Keep dialer UX smooth even if remote update fails.
+      }
 
       if (_currentIndex >= _currentQueue.length) return;
 
@@ -382,6 +419,7 @@ class DialerBloc extends Bloc<DialerEvent, state.DialerState> {
       _currentIndex = 0;
       _currentSessionId = null;
       _currentCallLogId = null;
+      _currentRemoteCallLogId = null;
       _currentCallStartTime = null;
 
       // Reload the current state

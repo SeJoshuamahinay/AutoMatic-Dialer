@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../../database/app_database.dart';
 import '../models/call_contact_model.dart';
 import '../models/call_log_model.dart';
+import 'api_client.dart';
 
 /// Service for managing call logs and statistics using the local Drift database
 class CallLogService {
@@ -29,6 +32,8 @@ class CallLogService {
       );
     }
   }
+
+  static const String _remoteCallLogsEndpoint = '/api/call-logs';
 
   // ===== CALL LOG MANAGEMENT =====
 
@@ -126,6 +131,72 @@ class CallLogService {
 
     final result = await _database.updateCallLog(callLogId, companion);
     return result;
+  }
+
+  // ===== REMOTE CALL LOG API =====
+
+  /// GET /api/call-logs
+  Future<Map<String, dynamic>> listRemoteCallLogs({
+    Map<String, dynamic>? queryParams,
+  }) async {
+    final query = queryParams == null || queryParams.isEmpty
+        ? ''
+        : '?${queryParams.entries.map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value.toString())}').join('&')}';
+
+    final response = await ApiClient.get('$_remoteCallLogsEndpoint$query');
+    return _safeDecodeMap(response.body);
+  }
+
+  /// POST /api/call-logs
+  Future<int?> createRemoteCallLog({
+    required int userId,
+    required int borrowerId,
+    required int loanId,
+    required DateTime timeRendered,
+    String? callStatus,
+    String? notes,
+  }) async {
+    final body = <String, dynamic>{
+      'user_id': userId,
+      'borrower_id': borrowerId,
+      'loan_id': loanId,
+      'time_rendered': timeRendered.toIso8601String(),
+      if (callStatus != null && callStatus.isNotEmpty) 'status': callStatus,
+      if (notes != null && notes.isNotEmpty) 'notes': notes,
+    };
+
+    final response = await ApiClient.post(_remoteCallLogsEndpoint, body: body);
+    final decoded = _safeDecodeMap(response.body);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final directId = decoded['id'];
+      if (directId is num) return directId.toInt();
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        final nestedId = data['id'];
+        if (nestedId is num) return nestedId.toInt();
+      }
+    }
+
+    return null;
+  }
+
+  /// GET /api/call-logs/{id}
+  Future<Map<String, dynamic>> getRemoteCallLog(int id) async {
+    final response = await ApiClient.get('$_remoteCallLogsEndpoint/$id');
+    return _safeDecodeMap(response.body);
+  }
+
+  /// PUT /api/call-logs/{id}
+  Future<Map<String, dynamic>> updateRemoteCallLog(
+    int id,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await ApiClient.put(
+      '$_remoteCallLogsEndpoint/$id',
+      body: payload,
+    );
+    return _safeDecodeMap(response.body);
   }
 
   // ===== CONTACT MANAGEMENT =====
@@ -590,5 +661,12 @@ class CallLogService {
       }
     }
     return groups;
+  }
+
+  Map<String, dynamic> _safeDecodeMap(String body) {
+    if (body.trim().isEmpty) return {};
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) return decoded;
+    return {'data': decoded};
   }
 }

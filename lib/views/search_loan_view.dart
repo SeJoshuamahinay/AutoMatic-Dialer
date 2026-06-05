@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
+import 'package:lenderly_dialer/commons/services/accounts_bucket_service.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
+import 'package:lenderly_dialer/commons/services/call_log_service.dart';
+import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 import 'follow_up_form_view.dart';
 import 'loan_detail_view.dart';
 
@@ -61,6 +64,7 @@ class _SearchLoanViewState extends State<SearchLoanView> {
   String? _errorMessage;
   String _lastQuery = '';
   Timer? _debounce;
+  final CallLogService _callLogService = CallLogService();
 
   static const String _searchEndpoint = '/api/lenderly/dialer/data/search';
   static const Duration _debounceDuration = Duration(milliseconds: 500);
@@ -139,11 +143,19 @@ class _SearchLoanViewState extends State<SearchLoanView> {
     }
   }
 
-  Future<void> _makePhoneCall(String number, String name) async {
+  Future<void> _makePhoneCall(
+    String number,
+    String name, {
+    required int loanId,
+    int? borrowerId,
+  }) async {
     if (!mounted) return;
     try {
       await Future.delayed(const Duration(milliseconds: 100));
       final called = await FlutterPhoneDirectCaller.callNumber(number);
+      if (called == true) {
+        await _logManualCall(loanId: loanId, borrowerId: borrowerId);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -166,6 +178,27 @@ class _SearchLoanViewState extends State<SearchLoanView> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _logManualCall({required int loanId, int? borrowerId}) async {
+    try {
+      final session = await SharedPrefsStorageService.getUserSession();
+      if (session == null) return;
+
+      final resolvedBorrowerId =
+          borrowerId ??
+          await AccountsBucketService.getBorrowerIdForLoan(loanId);
+
+      await _callLogService.createRemoteCallLog(
+        userId: session.userId,
+        borrowerId: resolvedBorrowerId,
+        loanId: loanId,
+        timeRendered: DateTime.now(),
+        callStatus: 'called',
+      );
+    } catch (_) {
+      // Keep manual call UX smooth even if remote logging fails.
     }
   }
 
@@ -297,7 +330,12 @@ class _SearchLoanViewState extends State<SearchLoanView> {
                     if (hasMobile)
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => _makePhoneCall(result.mobile!, name),
+                          onPressed: () => _makePhoneCall(
+                            result.mobile!,
+                            name,
+                            loanId: result.loanId,
+                            borrowerId: result.borrowerId,
+                          ),
                           icon: const Icon(Icons.phone_android, size: 16),
                           label: const Text('Call Mobile'),
                           style: ElevatedButton.styleFrom(
@@ -314,7 +352,12 @@ class _SearchLoanViewState extends State<SearchLoanView> {
                     if (hasPhone)
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => _makePhoneCall(result.phone!, name),
+                          onPressed: () => _makePhoneCall(
+                            result.phone!,
+                            name,
+                            loanId: result.loanId,
+                            borrowerId: result.borrowerId,
+                          ),
                           icon: const Icon(Icons.phone, size: 16),
                           label: const Text('Call Phone'),
                           style: ElevatedButton.styleFrom(

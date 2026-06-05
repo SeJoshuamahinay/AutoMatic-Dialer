@@ -3,6 +3,7 @@ import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:intl/intl.dart';
 import 'package:lenderly_dialer/commons/models/loan_models.dart';
 import 'package:lenderly_dialer/commons/services/accounts_bucket_service.dart';
+import 'package:lenderly_dialer/commons/services/call_log_service.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 import 'package:lenderly_dialer/views/follow_up_form_view.dart';
 import 'package:lenderly_dialer/views/loan_detail_view.dart';
@@ -23,6 +24,7 @@ class _HardcoreViewState extends State<HardcoreView> {
   String _searchQuery = '';
 
   final _amtFmt = NumberFormat('#,##0.00', 'en_PH');
+  final CallLogService _callLogService = CallLogService();
 
   // Hardcore theme color
   static const _themeColor = Colors.red;
@@ -158,11 +160,19 @@ class _HardcoreViewState extends State<HardcoreView> {
     }
   }
 
-  Future<void> _makePhoneCall(String phone, String name) async {
+  Future<void> _makePhoneCall(
+    String phone,
+    String name, {
+    required int loanId,
+    int? borrowerId,
+  }) async {
     if (!mounted) return;
     try {
       await Future.delayed(const Duration(milliseconds: 100));
       final called = await FlutterPhoneDirectCaller.callNumber(phone);
+      if (called == true) {
+        await _logManualCall(loanId: loanId, borrowerId: borrowerId);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -182,6 +192,27 @@ class _HardcoreViewState extends State<HardcoreView> {
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  Future<void> _logManualCall({required int loanId, int? borrowerId}) async {
+    try {
+      final session = await SharedPrefsStorageService.getUserSession();
+      if (session == null) return;
+
+      final resolvedBorrowerId =
+          borrowerId ??
+          await AccountsBucketService.getBorrowerIdForLoan(loanId);
+
+      await _callLogService.createRemoteCallLog(
+        userId: session.userId,
+        borrowerId: resolvedBorrowerId,
+        loanId: loanId,
+        timeRendered: DateTime.now(),
+        callStatus: 'called',
+      );
+    } catch (_) {
+      // Keep manual call UX smooth even if remote logging fails.
     }
   }
 
@@ -597,6 +628,8 @@ class _HardcoreViewState extends State<HardcoreView> {
                           Icons.phone,
                           'Call Phone',
                           Colors.red.shade700,
+                          loanId: r.loanId,
+                          borrowerId: r.borrowerId,
                         ),
                       ),
                     if (r.hasPhone && r.hasMobile) const SizedBox(width: 8),
@@ -608,6 +641,8 @@ class _HardcoreViewState extends State<HardcoreView> {
                           Icons.phone_android,
                           'Call Mobile',
                           Colors.deepOrange.shade700,
+                          loanId: r.loanId,
+                          borrowerId: r.borrowerId,
                         ),
                       ),
                   ],
@@ -645,10 +680,13 @@ class _HardcoreViewState extends State<HardcoreView> {
     String name,
     IconData icon,
     String label,
-    Color color,
-  ) {
+    Color color, {
+    required int loanId,
+    required int? borrowerId,
+  }) {
     return ElevatedButton.icon(
-      onPressed: () => _makePhoneCall(phone, name),
+      onPressed: () =>
+          _makePhoneCall(phone, name, loanId: loanId, borrowerId: borrowerId),
       icon: Icon(icon, size: 14),
       label: Text(label, style: const TextStyle(fontSize: 12)),
       style: ElevatedButton.styleFrom(
