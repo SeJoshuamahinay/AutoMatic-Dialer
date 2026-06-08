@@ -34,7 +34,7 @@ class AuthApiService {
         return LoginResponse(
           success: false,
           message:
-              'Login endpoint redirected (${status}). '
+              'Login endpoint redirected ($status). '
                       'Use HTTPS base URL. '
                       '${location != null ? 'Redirect target: $location' : ''}'
                   .trim(),

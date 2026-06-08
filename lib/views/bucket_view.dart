@@ -20,7 +20,7 @@ class BucketView extends StatefulWidget {
 
 class _BucketViewState extends State<BucketView> {
   List<LoanRecord> _loans = [];
-  Map<String, dynamic> _statistics = {};
+  final Map<String, dynamic> _statistics = {};
   bool _prioritizeCoMaker = true;
 
   @override

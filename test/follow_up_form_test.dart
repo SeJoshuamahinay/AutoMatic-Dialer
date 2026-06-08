@@ -12,13 +12,13 @@ import 'package:lenderly_dialer/views/follow_up_form_view.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const _testSubjects = [
+  const testSubjects = [
     'Collection Follow-up',
     'Payment Reminder',
     'Field Visit',
   ];
 
-  final _mockSession = UserSession(
+  final mockSession = UserSession(
     userId: 7,
     email: 'agent@test.com',
     fullName: 'Test Agent',
@@ -42,13 +42,13 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({
       'auth_token': 'fake-token-abc',
-      'user_session': jsonEncode(_mockSession.toJson()),
+      'user_session': jsonEncode(mockSession.toJson()),
     });
   });
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
-  Widget _buildWidget() {
+  Widget buildWidget() {
     return const MaterialApp(
       home: FollowUpFormView(
         loanId: 42,
@@ -60,14 +60,14 @@ void main() {
 
   /// Returns a [MockClient] that serves fake subjects and optionally a
   /// customisable LAFU response.
-  MockClient _mockClient({
+  MockClient mockClient({
     int lafuStatus = 201,
     Map<String, dynamic>? lafuBody,
   }) {
     return MockClient((request) async {
       if (request.url.path.endsWith('lafuSubjects')) {
         return http.Response(
-          jsonEncode({'success': true, 'data': _testSubjects}),
+          jsonEncode({'success': true, 'data': testSubjects}),
           200,
           headers: {'content-type': 'application/json'},
         );
@@ -84,17 +84,17 @@ void main() {
   }
 
   // Selects the first subject from the dropdown after subjects have loaded.
-  Future<void> _selectFirstSubject(WidgetTester tester) async {
+  Future<void> selectFirstSubject(WidgetTester tester) async {
     final subjectDropdown = find.byType(DropdownButtonFormField<String>).first;
     await tester.tap(subjectDropdown);
     await tester.pumpAndSettle();
     // Tap the last occurrence to avoid hitting the button itself.
-    await tester.tap(find.text(_testSubjects[0]).last);
+    await tester.tap(find.text(testSubjects[0]).last);
     await tester.pumpAndSettle();
   }
 
   // Taps a "Select date" widget and confirms the default date via OK.
-  Future<void> _pickDate(WidgetTester tester) async {
+  Future<void> pickDate(WidgetTester tester) async {
     await tester.tap(find.text('Select date').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
@@ -106,18 +106,18 @@ void main() {
   group('FollowUpFormView – UI', () {
     testWidgets('renders app bar title and borrower name', (tester) async {
       await http.runWithClient(() async {
-        await tester.pumpWidget(_buildWidget());
+        await tester.pumpWidget(buildWidget());
         await tester.pump(const Duration(seconds: 1));
 
         expect(find.text('Add Follow-up'), findsOneWidget);
         expect(find.text('Juan dela Cruz'), findsOneWidget);
         expect(find.text('Save Follow-up'), findsOneWidget);
-      }, _mockClient);
+      }, mockClient);
     });
 
     testWidgets('shows loading spinner then subject dropdown', (tester) async {
       await http.runWithClient(() async {
-        await tester.pumpWidget(_buildWidget());
+        await tester.pumpWidget(buildWidget());
 
         // Spinner is visible immediately (before subjects arrive).
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -125,7 +125,7 @@ void main() {
         // After subjects load the dropdown should be there.
         await tester.pump(const Duration(seconds: 1));
         expect(find.byType(DropdownButtonFormField<String>), findsWidgets);
-      }, _mockClient);
+      }, mockClient);
     });
   });
 
@@ -134,7 +134,7 @@ void main() {
       'shows "Subject is required" when form submitted without subject',
       (tester) async {
         await http.runWithClient(() async {
-          await tester.pumpWidget(_buildWidget());
+          await tester.pumpWidget(buildWidget());
           await tester.pump(const Duration(seconds: 1));
 
           await tester.ensureVisible(find.text('Save Follow-up'));
@@ -142,7 +142,7 @@ void main() {
           await tester.pump();
 
           expect(find.text('Subject is required'), findsOneWidget);
-        }, _mockClient);
+        }, mockClient);
       },
     );
 
@@ -150,10 +150,10 @@ void main() {
       tester,
     ) async {
       await http.runWithClient(() async {
-        await tester.pumpWidget(_buildWidget());
+        await tester.pumpWidget(buildWidget());
         await tester.pump(const Duration(seconds: 1));
 
-        await _selectFirstSubject(tester);
+        await selectFirstSubject(tester);
 
         // Submit without picking any date.
         await tester.ensureVisible(find.text('Save Follow-up'));
@@ -161,16 +161,16 @@ void main() {
         await tester.pump();
 
         expect(find.text('Please select a date of contact'), findsOneWidget);
-      }, _mockClient);
+      }, mockClient);
     });
 
     testWidgets('shows snackbar when action date is missing', (tester) async {
       await http.runWithClient(() async {
-        await tester.pumpWidget(_buildWidget());
+        await tester.pumpWidget(buildWidget());
         await tester.pump(const Duration(seconds: 1));
 
-        await _selectFirstSubject(tester);
-        await _pickDate(tester); // sets dateOfContact
+        await selectFirstSubject(tester);
+        await pickDate(tester); // sets dateOfContact
         // actionDate still missing
 
         await tester.ensureVisible(find.text('Save Follow-up'));
@@ -178,7 +178,7 @@ void main() {
         await tester.pump();
 
         expect(find.text('Please select an action date'), findsOneWidget);
-      }, _mockClient);
+      }, mockClient);
     });
   });
 
@@ -192,7 +192,7 @@ void main() {
       final client = MockClient((request) async {
         if (request.url.path.endsWith('lafuSubjects')) {
           return http.Response(
-            jsonEncode({'success': true, 'data': _testSubjects}),
+            jsonEncode({'success': true, 'data': testSubjects}),
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -210,12 +210,12 @@ void main() {
       });
 
       await http.runWithClient(() async {
-        await tester.pumpWidget(_buildWidget());
+        await tester.pumpWidget(buildWidget());
         await tester.pump(const Duration(seconds: 1));
 
-        await _selectFirstSubject(tester);
-        await _pickDate(tester); // dateOfContact
-        await _pickDate(tester); // actionDate
+        await selectFirstSubject(tester);
+        await pickDate(tester); // dateOfContact
+        await pickDate(tester); // actionDate
 
         await tester.ensureVisible(find.text('Save Follow-up'));
         await tester.tap(find.text('Save Follow-up'));
@@ -226,7 +226,7 @@ void main() {
         expect(capturedPayload!['loan_id'], equals(42));
         expect(capturedPayload!['borrower_id'], equals(10));
         expect(capturedPayload!['action_person_id'], equals(7));
-        expect(capturedPayload!['subject'], equals(_testSubjects[0]));
+        expect(capturedPayload!['subject'], equals(testSubjects[0]));
         expect(capturedPayload!['mode_of_contact'], isA<String>());
         expect(capturedPayload!['mode_of_payment'], isA<String>());
         expect(
@@ -253,7 +253,7 @@ void main() {
       final client = MockClient((request) async {
         if (request.url.path.endsWith('lafuSubjects')) {
           return http.Response(
-            jsonEncode({'success': true, 'data': _testSubjects}),
+            jsonEncode({'success': true, 'data': testSubjects}),
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -270,12 +270,12 @@ void main() {
       });
 
       await http.runWithClient(() async {
-        await tester.pumpWidget(_buildWidget());
+        await tester.pumpWidget(buildWidget());
         await tester.pump(const Duration(seconds: 1));
 
-        await _selectFirstSubject(tester);
-        await _pickDate(tester);
-        await _pickDate(tester);
+        await selectFirstSubject(tester);
+        await pickDate(tester);
+        await pickDate(tester);
 
         // Fill optional text fields.
         await tester.enterText(
@@ -302,12 +302,12 @@ void main() {
     ) async {
       await http.runWithClient(
         () async {
-          await tester.pumpWidget(_buildWidget());
+          await tester.pumpWidget(buildWidget());
           await tester.pump(const Duration(seconds: 1));
 
-          await _selectFirstSubject(tester);
-          await _pickDate(tester);
-          await _pickDate(tester);
+          await selectFirstSubject(tester);
+          await pickDate(tester);
+          await pickDate(tester);
 
           await tester.ensureVisible(find.text('Save Follow-up'));
           await tester.tap(find.text('Save Follow-up'));
@@ -318,7 +318,7 @@ void main() {
             findsOneWidget,
           );
         },
-        () => _mockClient(
+        () => mockClient(
           lafuStatus: 422,
           lafuBody: {'message': 'Unprocessable Entity'},
         ),
@@ -332,12 +332,12 @@ void main() {
       SharedPreferences.setMockInitialValues({});
 
       await http.runWithClient(() async {
-        await tester.pumpWidget(_buildWidget());
+        await tester.pumpWidget(buildWidget());
         await tester.pump(const Duration(seconds: 1));
 
-        await _selectFirstSubject(tester);
-        await _pickDate(tester);
-        await _pickDate(tester);
+        await selectFirstSubject(tester);
+        await pickDate(tester);
+        await pickDate(tester);
 
         await tester.ensureVisible(find.text('Save Follow-up'));
         await tester.tap(find.text('Save Follow-up'));
@@ -347,7 +347,7 @@ void main() {
           find.textContaining('Authentication token missing'),
           findsOneWidget,
         );
-      }, _mockClient);
+      }, mockClient);
     });
 
     testWidgets('button shows "Saving..." while request is in flight', (
@@ -357,7 +357,7 @@ void main() {
       final client = MockClient((request) async {
         if (request.url.path.endsWith('lafuSubjects')) {
           return http.Response(
-            jsonEncode({'success': true, 'data': _testSubjects}),
+            jsonEncode({'success': true, 'data': testSubjects}),
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -368,12 +368,12 @@ void main() {
       });
 
       await http.runWithClient(() async {
-        await tester.pumpWidget(_buildWidget());
+        await tester.pumpWidget(buildWidget());
         await tester.pump(const Duration(seconds: 1));
 
-        await _selectFirstSubject(tester);
-        await _pickDate(tester);
-        await _pickDate(tester);
+        await selectFirstSubject(tester);
+        await pickDate(tester);
+        await pickDate(tester);
 
         await tester.ensureVisible(find.text('Save Follow-up'));
         await tester.tap(find.text('Save Follow-up'));

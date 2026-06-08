@@ -7,7 +7,7 @@ import 'package:lenderly_dialer/database/app_database.dart';
 import 'package:lenderly_dialer/views/dashboard_view.dart';
 
 void main() {
-  Widget _testHost() {
+  Widget testHost() {
     return BlocProvider(
       create: (_) => DashboardBloc(BreakService(AppDatabase())),
       child: const MaterialApp(home: DashboardView()),
@@ -19,7 +19,7 @@ void main() {
       WidgetTester tester,
     ) async {
       // Build our app and trigger a frame.
-      await tester.pumpWidget(_testHost());
+      await tester.pumpWidget(testHost());
 
       // Verify that the dashboard loads
       expect(find.text('Dashboard'), findsOneWidget);
@@ -38,7 +38,7 @@ void main() {
     testWidgets('Dashboard should handle refresh action', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(_testHost());
+      await tester.pumpWidget(testHost());
 
       // Wait for initial load
       await tester.pump(const Duration(seconds: 1));
@@ -56,7 +56,7 @@ void main() {
     testWidgets('Dashboard should handle date selection', (
       WidgetTester tester,
     ) async {
-      await tester.pumpWidget(_testHost());
+      await tester.pumpWidget(testHost());
 
       // Wait for initial load
       await tester.pump(const Duration(seconds: 1));
