@@ -8,6 +8,7 @@ import '../blocs/break/break_state.dart';
 import '../commons/models/break_session_model.dart';
 import '../commons/reusables/logout_dialog.dart';
 import '../commons/models/auth_models.dart';
+import '../commons/services/environment_config.dart';
 import '../commons/services/shared_prefs_storage_service.dart';
 import 'profile_view.dart';
 import 'break_management_view.dart';
@@ -408,6 +409,79 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blueGrey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.public,
+                        size: 14,
+                        color: Colors.blueGrey,
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Environment',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blueGrey,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: EnvironmentConfig.isProduction
+                              ? Colors.red.shade100
+                              : (EnvironmentConfig.isLocal
+                                    ? Colors.green.shade100
+                                    : Colors.orange.shade100),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          EnvironmentConfig.isProduction
+                              ? 'PROD'
+                              : (EnvironmentConfig.isLocal ? 'LOCAL' : 'DEV'),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: EnvironmentConfig.isProduction
+                                ? Colors.red.shade800
+                                : (EnvironmentConfig.isLocal
+                                      ? Colors.green.shade800
+                                      : Colors.orange.shade800),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    EnvironmentConfig.apiBaseUrl.isEmpty
+                        ? 'No API base URL loaded'
+                        : EnvironmentConfig.apiBaseUrl,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: Colors.black87,
+                    ),
                   ),
                 ],
               ),
