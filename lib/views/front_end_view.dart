@@ -1,115 +1,86 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
-import 'package:intl/intl.dart';
-import 'package:lenderly_dialer/commons/models/loan_models.dart';
+import 'package:lenderly_dialer/blocs/bucket_list/bucket_list_bloc.dart';
+import 'package:lenderly_dialer/commons/widgets/bucket_loan_card.dart';
+import 'package:lenderly_dialer/blocs/bucket_list/bucket_list_event.dart';
+import 'package:lenderly_dialer/blocs/bucket_list/bucket_list_state.dart';
 import 'package:lenderly_dialer/commons/services/accounts_bucket_service.dart';
 import 'package:lenderly_dialer/commons/services/call_log_service.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
+import 'package:lenderly_dialer/commons/models/loan_models.dart';
 import 'package:lenderly_dialer/views/follow_up_form_view.dart';
 import 'package:lenderly_dialer/views/loan_detail_view.dart';
 
-class FrontEndView extends StatefulWidget {
+class FrontEndView extends StatelessWidget {
   const FrontEndView({super.key});
 
   @override
-  State<FrontEndView> createState() => _FrontEndViewState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => BucketListBloc(),
+      child: const _FrontEndViewBody(),
+    );
+  }
 }
 
-class _FrontEndViewState extends State<FrontEndView> {
-  List<DialerLoanRecord> _loans = [];
-  List<DialerLoanRecord> _filteredLoans = [];
-  bool _isLoading = true;
-  String? _errorMessage;
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
+class _FrontEndViewBody extends StatefulWidget {
+  const _FrontEndViewBody();
 
-  final _amtFmt = NumberFormat('#,##0.00', 'en_PH');
+  @override
+  State<_FrontEndViewBody> createState() => _FrontEndViewBodyState();
+}
+
+class _FrontEndViewBodyState extends State<_FrontEndViewBody> {
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final CallLogService _callLogService = CallLogService();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
-    _loadData();
+    _loadInitial();
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
+  Future<void> _loadInitial() async {
+    final session = await SharedPrefsStorageService.getUserSession();
+    if (!mounted) return;
+    context.read<BucketListBloc>().add(
+      BucketListLoad(
+        bucket: 'frontend',
+        userId: session?.userId.toString() ?? '0',
+      ),
+    );
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
+      context.read<BucketListBloc>().add(const BucketListLoadMore());
+    }
+  }
+
   void _onSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text;
-      _applyFilter();
-    });
-  }
-
-  void _applyFilter() {
-    if (_searchQuery.isEmpty) {
-      _filteredLoans = List.from(_loans);
-    } else {
-      final q = _searchQuery.toLowerCase();
-      _filteredLoans = _loans.where((r) {
-        return r.fullName.toLowerCase().contains(q) ||
-            r.accountNumber.toLowerCase().contains(q) ||
-            r.uniqueNumber.toLowerCase().contains(q);
-      }).toList();
-    }
-  }
-
-  Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final session = await SharedPrefsStorageService.getUserSession();
-      if (session == null) {
-        setState(() {
-          _errorMessage = 'Please log in to view frontend accounts';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      final records = await AccountsBucketService.getDialerDataByBucket(
-        session.userId.toString(),
-        'frontend',
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      context.read<BucketListBloc>().add(
+        BucketListSearch(_searchController.text),
       );
-
-      setState(() {
-        _loans = records;
-        _applyFilter();
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load frontend accounts: $e';
-        _isLoading = false;
-      });
-    }
-  }
-
-  String _fAmt(String? raw) {
-    if (raw == null || raw.isEmpty) return '₱0.00';
-    final clean = raw.replaceAll(',', '');
-    final v = double.tryParse(clean);
-    if (v == null) return '₱$raw';
-    return '₱${_amtFmt.format(v)}';
-  }
-
-  String _fDate(String? raw) {
-    if (raw == null || raw.isEmpty) return '—';
-    try {
-      final d = DateTime.parse(raw);
-      return DateFormat('MMM d, yyyy').format(d);
-    } catch (_) {
-      return raw;
-    }
+    });
   }
 
   void _openLoanDetail(DialerLoanRecord r) {
@@ -119,7 +90,6 @@ class _FrontEndViewState extends State<FrontEndView> {
   }
 
   Future<void> _openFollowUp(DialerLoanRecord r) async {
-    // Show loading
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
       const SnackBar(
@@ -127,7 +97,6 @@ class _FrontEndViewState extends State<FrontEndView> {
         duration: Duration(seconds: 10),
       ),
     );
-
     try {
       final borrowerId =
           r.borrowerId ??
@@ -143,9 +112,7 @@ class _FrontEndViewState extends State<FrontEndView> {
           ),
         ),
       );
-      if (result == true && mounted) {
-        _loadData(); // refresh after successful follow-up
-      }
+      if (result == true && mounted) _loadInitial();
     } catch (e) {
       if (!mounted) return;
       messenger.hideCurrentSnackBar();
@@ -197,11 +164,9 @@ class _FrontEndViewState extends State<FrontEndView> {
     try {
       final session = await SharedPrefsStorageService.getUserSession();
       if (session == null) return;
-
       final resolvedBorrowerId =
           borrowerId ??
           await AccountsBucketService.getBorrowerIdForLoan(loanId);
-
       await _callLogService.createRemoteCallLog(
         userId: session.userId,
         borrowerId: resolvedBorrowerId,
@@ -209,9 +174,7 @@ class _FrontEndViewState extends State<FrontEndView> {
         timeRendered: DateTime.now(),
         callStatus: 'called',
       );
-    } catch (_) {
-      // Keep manual call UX smooth even if remote logging fails.
-    }
+    } catch (_) {}
   }
 
   @override
@@ -241,16 +204,20 @@ class _FrontEndViewState extends State<FrontEndView> {
         elevation: 2,
         toolbarHeight: 70,
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        color: Colors.blue,
-        child: SafeArea(child: _buildBody()),
+      body: BlocBuilder<BucketListBloc, BucketListState>(
+        builder: (context, state) {
+          return RefreshIndicator(
+            onRefresh: _loadInitial,
+            color: Colors.blue,
+            child: SafeArea(child: _buildBody(state)),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
+  Widget _buildBody(BucketListState state) {
+    if (state is BucketListInitial || state is BucketListLoading) {
       return const Center(
         child: CircularProgressIndicator(
           valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
@@ -258,7 +225,7 @@ class _FrontEndViewState extends State<FrontEndView> {
       );
     }
 
-    if (_errorMessage != null) {
+    if (state is BucketListError) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -268,14 +235,14 @@ class _FrontEndViewState extends State<FrontEndView> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Text(
-                _errorMessage!,
+                state.message,
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
               ),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _loadData,
+              onPressed: _loadInitial,
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
@@ -288,9 +255,10 @@ class _FrontEndViewState extends State<FrontEndView> {
       );
     }
 
+    final s = state as BucketListLoaded;
+
     return Column(
       children: [
-        // Search bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: TextField(
@@ -298,10 +266,15 @@ class _FrontEndViewState extends State<FrontEndView> {
             decoration: InputDecoration(
               hintText: 'Search by name or account number',
               prefixIcon: const Icon(Icons.search, color: Colors.blue),
-              suffixIcon: _searchQuery.isNotEmpty
+              suffixIcon: s.searchQuery.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, color: Colors.blue),
-                      onPressed: () => _searchController.clear(),
+                      onPressed: () {
+                        _searchController.clear();
+                        context.read<BucketListBloc>().add(
+                          const BucketListSearch(''),
+                        );
+                      },
                     )
                   : null,
               border: OutlineInputBorder(
@@ -325,7 +298,6 @@ class _FrontEndViewState extends State<FrontEndView> {
             ),
           ),
         ),
-        // Stats bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Card(
@@ -340,19 +312,19 @@ class _FrontEndViewState extends State<FrontEndView> {
                   _statTile(
                     Icons.folder,
                     'Total',
-                    '${_loans.length}',
+                    '${s.totalCount}',
                     Colors.blue.shade400,
                   ),
                   _statTile(
                     Icons.phone,
                     'Dialable',
-                    '${_loans.where((r) => r.hasValidPhone).length}',
+                    '${s.records.where((r) => r.hasValidPhone).length}',
                     Colors.green.shade400,
                   ),
                   _statTile(
-                    Icons.search,
-                    'Filtered',
-                    '${_filteredLoans.length}',
+                    Icons.download_outlined,
+                    'Loaded',
+                    '${s.records.length}',
                     Colors.orange.shade400,
                   ),
                 ],
@@ -360,15 +332,14 @@ class _FrontEndViewState extends State<FrontEndView> {
             ),
           ),
         ),
-        // List
         Expanded(
-          child: _filteredLoans.isEmpty
+          child: s.records.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        _searchQuery.isNotEmpty
+                        s.searchQuery.isNotEmpty
                             ? Icons.search_off
                             : Icons.assignment_outlined,
                         size: 64,
@@ -376,8 +347,8 @@ class _FrontEndViewState extends State<FrontEndView> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        _searchQuery.isNotEmpty
-                            ? 'No accounts matching "$_searchQuery"'
+                        s.searchQuery.isNotEmpty
+                            ? 'No accounts matching "${s.searchQuery}"'
                             : 'No frontend accounts',
                         style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                         textAlign: TextAlign.center,
@@ -386,14 +357,60 @@ class _FrontEndViewState extends State<FrontEndView> {
                   ),
                 )
               : ListView.separated(
+                  controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,
                   ),
-                  itemCount: _filteredLoans.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) => _buildCard(_filteredLoans[i], i),
+                  addAutomaticKeepAlives: false,
+                  addRepaintBoundaries: false, // RepaintBoundary inside card
+                  itemCount:
+                      s.records.length + (s.hasMore || s.isLoadingMore ? 1 : 0),
+                  separatorBuilder: (_, i) => i < s.records.length - 1
+                      ? const SizedBox(height: 8)
+                      : const SizedBox.shrink(),
+                  itemBuilder: (context, i) {
+                    if (i == s.records.length) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.blue,
+                            ),
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      );
+                    }
+                    final r = s.records[i];
+                    return BucketLoanCard(
+                      key: ValueKey(r.loanId),
+                      record: r,
+                      index: i,
+                      themeColor: Colors.blue,
+                      secondaryColor: Colors.green,
+                      onViewDetails: () => _openLoanDetail(r),
+                      onFollowUp: () => _openFollowUp(r),
+                      onCallPhone: r.hasPhone
+                          ? () => _makePhoneCall(
+                              r.phone!,
+                              r.fullName,
+                              loanId: r.loanId,
+                              borrowerId: r.borrowerId,
+                            )
+                          : null,
+                      onCallMobile: r.hasMobile
+                          ? () => _makePhoneCall(
+                              r.mobile!,
+                              r.fullName,
+                              loanId: r.loanId,
+                              borrowerId: r.borrowerId,
+                            )
+                          : null,
+                    );
+                  },
                 ),
         ),
       ],
@@ -424,275 +441,6 @@ class _FrontEndViewState extends State<FrontEndView> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildCard(DialerLoanRecord r, int index) {
-    final hasLastFollowUp = r.lastLafuDate != null;
-
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      color: r.hasValidPhone ? Colors.white : Colors.grey.shade50,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => _openLoanDetail(r),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header row
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Colors.blue.shade100,
-                    child: Text(
-                      '${index + 1}',
-                      style: TextStyle(
-                        color: Colors.blue.shade800,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          r.fullName.toUpperCase(),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if ((r.borrowerCity ?? '').isNotEmpty)
-                          Text(
-                            r.borrowerCity!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        Text(
-                          r.accountNumber,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Outstanding balance
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        _fAmt(r.outstandingBalance),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red,
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                        '${r.arrearsDays} days overdue',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.orange.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // Due date + last follow-up
-              Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today,
-                    size: 13,
-                    color: Colors.grey.shade500,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Due: ${_fDate(r.earliestDue)}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-                  ),
-                  const Spacer(),
-                  if (hasLastFollowUp) ...[
-                    Icon(
-                      Icons.assignment_turned_in,
-                      size: 13,
-                      color: Colors.green.shade600,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Last FU: ${_fDate(r.lastLafuDate)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.green.shade700,
-                      ),
-                    ),
-                  ] else ...[
-                    Icon(
-                      Icons.assignment_late,
-                      size: 13,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'No follow-up yet',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              // Action buttons row
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openLoanDetail(r),
-                      icon: const Icon(Icons.description_outlined, size: 14),
-                      label: const Text(
-                        'View Details',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.blue,
-                        side: const BorderSide(color: Colors.blue),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 6,
-                        ),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openFollowUp(r),
-                      icon: const Icon(Icons.add_comment_outlined, size: 14),
-                      label: const Text(
-                        'Follow-up',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 6,
-                        ),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              // Phone buttons
-              if (r.hasValidPhone) ...[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    if (r.hasPhone)
-                      Expanded(
-                        child: _callButton(
-                          r.phone!,
-                          r.fullName,
-                          loanId: r.loanId,
-                          borrowerId: r.borrowerId,
-                          Icons.phone,
-                          'Call Phone',
-                          Colors.blue,
-                        ),
-                      ),
-                    if (r.hasPhone && r.hasMobile) const SizedBox(width: 8),
-                    if (r.hasMobile)
-                      Expanded(
-                        child: _callButton(
-                          r.mobile!,
-                          r.fullName,
-                          loanId: r.loanId,
-                          borrowerId: r.borrowerId,
-                          Icons.phone_android,
-                          'Call Mobile',
-                          Colors.indigo,
-                        ),
-                      ),
-                  ],
-                ),
-              ] else ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.phone_disabled,
-                      size: 14,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'No phone number available',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _callButton(
-    String phone,
-    String name,
-    IconData icon,
-    String label,
-    Color color, {
-    required int loanId,
-    required int? borrowerId,
-  }) {
-    return ElevatedButton.icon(
-      onPressed: () =>
-          _makePhoneCall(phone, name, loanId: loanId, borrowerId: borrowerId),
-      icon: Icon(icon, size: 14),
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
   }

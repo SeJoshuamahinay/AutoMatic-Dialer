@@ -1,6 +1,6 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-enum Environment { dev, prod }
+enum Environment { local, dev, prod }
 
 class EnvironmentConfig {
   static Environment _currentEnvironment = Environment.dev;
@@ -16,8 +16,11 @@ class EnvironmentConfig {
       defaultValue: '',
     );
     if (dartDefineEnv.isNotEmpty) {
-      if (dartDefineEnv.toLowerCase() == 'prod') {
+      final env = dartDefineEnv.toLowerCase();
+      if (env == 'prod') {
         _currentEnvironment = Environment.prod;
+      } else if (env == 'local') {
+        _currentEnvironment = Environment.local;
       } else {
         _currentEnvironment = Environment.dev;
       }
@@ -25,9 +28,11 @@ class EnvironmentConfig {
       _currentEnvironment = environment;
     }
 
-    String envFile = _currentEnvironment == Environment.prod
-        ? '.env.prod'
-        : '.env.dev';
+    final String envFile = switch (_currentEnvironment) {
+      Environment.local => '.env.local',
+      Environment.prod => '.env.prod',
+      Environment.dev => '.env.dev',
+    };
 
     try {
       await dotenv.load(fileName: envFile);
@@ -77,5 +82,6 @@ class EnvironmentConfig {
   }
 
   static bool get isDevelopment => _currentEnvironment == Environment.dev;
+  static bool get isLocal => _currentEnvironment == Environment.local;
   static bool get isProduction => _currentEnvironment == Environment.prod;
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:lenderly_dialer/commons/models/loan_models.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'package:lenderly_dialer/commons/services/environment_config.dart';
@@ -195,6 +196,83 @@ class AccountsBucketService {
 
     // Return co-maker loans first, then borrower-only loans
     return [...coMakerLoans, ...borrowerOnlyLoans];
+  }
+
+  /// Get loans for a specific bucket with pagination + optional search.
+  /// Calls GET /api/lenderly/dialer/data/{bucket}?user_id={id}&page={n}&per_page={n}&search={q}
+  /// Returns { 'records': List<DialerLoanRecord>, 'pagination': Map?, 'total': int? }
+  static Future<Map<String, dynamic>> getDialerDataByBucketPaged(
+    String userId,
+    String bucket, {
+    int page = 1,
+    int perPage = 50,
+    String? search,
+  }) async {
+    try {
+      final buffer = StringBuffer(
+        '$_dialerDataEndpoint/$bucket?user_id=${Uri.encodeQueryComponent(userId)}&page=$page&per_page=$perPage',
+      );
+      if (search != null && search.isNotEmpty) {
+        buffer.write('&search=${Uri.encodeQueryComponent(search)}');
+      }
+
+      final url = buffer.toString();
+      debugPrint(
+        '[BucketService] ▶ FETCH  bucket=$bucket page=$page perPage=$perPage search=$search',
+      );
+      debugPrint('[BucketService]   URL: $url');
+      final t0 = DateTime.now();
+
+      final response = await ApiClient.get(
+        url,
+        timeout: const Duration(seconds: 60),
+      );
+
+      final elapsed = DateTime.now().difference(t0).inMilliseconds;
+      debugPrint(
+        '[BucketService] ◀ RESPONSE  status=${response.statusCode}  elapsed=${elapsed}ms  bodyLen=${response.body.length}',
+      );
+
+      if (response.statusCode == 200) {
+        final t1 = DateTime.now();
+        final jsonData = jsonDecode(response.body);
+        final inner = jsonData is Map ? jsonData['data'] : null;
+        List<DialerLoanRecord> records = [];
+        Map<String, dynamic>? pagination;
+        int? total;
+
+        if (inner is Map) {
+          if (inner['records'] is List) {
+            records = (inner['records'] as List)
+                .map(
+                  (e) => DialerLoanRecord.fromJson(e as Map<String, dynamic>),
+                )
+                .toList();
+          }
+          if (inner['pagination'] is Map) {
+            pagination = Map<String, dynamic>.from(inner['pagination'] as Map);
+          }
+          total = inner['total'] as int?;
+        }
+
+        final parseMs = DateTime.now().difference(t1).inMilliseconds;
+        debugPrint(
+          '[BucketService] ✔ PARSED  records=${records.length}  total=$total  hasMore=${pagination?['has_more']}  parseMs=${parseMs}ms',
+        );
+
+        return {'records': records, 'pagination': pagination, 'total': total};
+      } else {
+        debugPrint(
+          '[BucketService] ✖ HTTP ERROR ${response.statusCode}: ${response.body}',
+        );
+        throw Exception('HTTP ${response.statusCode}');
+      }
+    } on AuthSessionExpiredException {
+      rethrow;
+    } catch (e) {
+      debugPrint('[BucketService] ✖ EXCEPTION: $e');
+      rethrow;
+    }
   }
 
   /// Get loans for a specific bucket from the new dialer API

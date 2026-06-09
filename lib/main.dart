@@ -11,6 +11,7 @@ import 'views/login_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  String? bootError;
 
   // Setup comprehensive error handling for gesture and framework errors
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -69,18 +70,49 @@ void main() async {
 
     if (EnvironmentConfig.enableLogging) {}
   } catch (e) {
-    if (EnvironmentConfig.enableLogging) {}
-    // Continue with app initialization even if env fails
+    bootError = e.toString();
   }
 
-  runApp(const MyApp());
+  runApp(MyApp(bootError: bootError));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final String? bootError;
+
+  const MyApp({super.key, this.bootError});
 
   @override
   Widget build(BuildContext context) {
+    if (bootError != null) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 56),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'App failed to start',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    bootError!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return BlocProviders.create(
       child: MaterialApp(
         title: 'Dialer App',

@@ -76,6 +76,7 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
 
   static const String _lafuEndpoint = '/api/lenderly/dialer/lafu';
   static const String _subjectsEndpoint = '/api/lenderly/dialer/lafuSubjects';
+  static final RegExp _decimalRegExp = RegExp(r'^\d*\.?\d{0,2}');
 
   @override
   void initState() {
@@ -374,6 +375,7 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
           maxLines: maxLines,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
+          scrollPadding: const EdgeInsets.only(bottom: 120),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: Colors.grey[400]),
@@ -402,6 +404,7 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,7 +428,8 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
           children: [
             // ── Required Fields ──────────────────────────────────────────
             Container(
@@ -609,9 +613,7 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
                       decimal: true,
                     ),
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d*\.?\d{0,2}'),
-                      ),
+                      FilteringTextInputFormatter.allow(_decimalRegExp),
                     ],
                     hint: '0.00',
                   ),
