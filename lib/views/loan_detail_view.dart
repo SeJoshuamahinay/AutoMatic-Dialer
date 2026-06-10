@@ -39,6 +39,8 @@ class LoanDetail {
   final int? coSignerId;
   final String? coSignerName;
   final String? coSignerPhone;
+  final String? coSignerEmail;
+  final String? coSignerAddress;
 
   LoanDetail({
     required this.id,
@@ -71,6 +73,8 @@ class LoanDetail {
     this.coSignerId,
     this.coSignerName,
     this.coSignerPhone,
+    this.coSignerEmail,
+    this.coSignerAddress,
   });
 
   factory LoanDetail.fromJson(Map<String, dynamic> j) {
@@ -106,11 +110,27 @@ class LoanDetail {
       region: (j['borrower_region'] ?? j['region'])?.toString(),
       postalCode: (j['borrower_postal_code'] ?? j['postal_code'])?.toString(),
       zip: (j['borrower_zip'] ?? j['zip'])?.toString(),
-      coSignerId: j['co_signer_id'] != null
-          ? (j['co_signer_id'] as num).toInt()
-          : null,
-      coSignerName: j['co_signer_name']?.toString(),
-      coSignerPhone: j['co_signer_phone']?.toString(),
+      coSignerId: () {
+        final cs = j['co_signer'] as Map<String, dynamic>?;
+        final v = cs?['id'] ?? j['co_signer_id'];
+        return v != null ? (v as num).toInt() : null;
+      }(),
+      coSignerName:
+          ((j['co_signer'] as Map<String, dynamic>?)?['name'] ??
+                  j['co_signer_name'])
+              ?.toString(),
+      coSignerPhone:
+          ((j['co_signer'] as Map<String, dynamic>?)?['phone'] ??
+                  j['co_signer_phone'])
+              ?.toString(),
+      coSignerEmail:
+          ((j['co_signer'] as Map<String, dynamic>?)?['email'] ??
+                  j['co_signer_email'])
+              ?.toString(),
+      coSignerAddress:
+          ((j['co_signer'] as Map<String, dynamic>?)?['address'] ??
+                  j['co_signer_address'])
+              ?.toString(),
     );
   }
 
@@ -232,6 +252,7 @@ class _LoanDetailViewState extends State<LoanDetailView>
   List<LoanTransaction> _transactions = [];
   List<FollowUpRecord> _followUps = [];
   late TabController _tabController;
+  bool _fabOpen = false;
 
   static const String _detailEndpoint = '/api/lenderly/dialer/get-loan-details';
 
@@ -422,6 +443,8 @@ class _LoanDetailViewState extends State<LoanDetailView>
           const SizedBox(height: 12),
           _sectionCard('Co-signer', Icons.people, [
             _infoRow('Name', l.coSignerName),
+            _infoRow('Email', l.coSignerEmail),
+            _infoRow('Address', l.coSignerAddress),
             if (l.coSignerPhone != null && l.coSignerPhone!.isNotEmpty)
               _callRow(
                 'Phone',
@@ -886,22 +909,62 @@ class _LoanDetailViewState extends State<LoanDetailView>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                FloatingActionButton.extended(
-                  heroTag: 'update_contact_btn',
-                  onPressed: _openUpdateContactForm,
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                  icon: const Icon(Icons.edit_location_alt),
-                  label: const Text('Update Contact'),
+                AnimatedOpacity(
+                  opacity: _fabOpen ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 180),
+                  child: AnimatedSlide(
+                    offset: _fabOpen ? Offset.zero : const Offset(0, 0.3),
+                    duration: const Duration(milliseconds: 180),
+                    child: IgnorePointer(
+                      ignoring: !_fabOpen,
+                      child: FloatingActionButton.extended(
+                        heroTag: 'update_contact_btn',
+                        onPressed: () {
+                          setState(() => _fabOpen = false);
+                          _openUpdateContactForm();
+                        },
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                        icon: const Icon(Icons.edit_location_alt),
+                        label: const Text('Update Contact'),
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 10),
-                FloatingActionButton.extended(
-                  heroTag: 'add_followup_btn',
-                  onPressed: _openFollowUpForm,
-                  backgroundColor: Colors.indigo,
+                AnimatedOpacity(
+                  opacity: _fabOpen ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 130),
+                  child: AnimatedSlide(
+                    offset: _fabOpen ? Offset.zero : const Offset(0, 0.3),
+                    duration: const Duration(milliseconds: 130),
+                    child: IgnorePointer(
+                      ignoring: !_fabOpen,
+                      child: FloatingActionButton.extended(
+                        heroTag: 'add_followup_btn',
+                        onPressed: () {
+                          setState(() => _fabOpen = false);
+                          _openFollowUpForm();
+                        },
+                        backgroundColor: Colors.indigo,
+                        foregroundColor: Colors.white,
+                        icon: const Icon(Icons.note_add),
+                        label: const Text('Add Follow-up'),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                FloatingActionButton(
+                  heroTag: 'main_fab',
+                  onPressed: () => setState(() => _fabOpen = !_fabOpen),
+                  backgroundColor: Colors.indigo[900],
                   foregroundColor: Colors.white,
-                  icon: const Icon(Icons.note_add),
-                  label: const Text('Add Follow-up'),
+                  child: AnimatedRotation(
+                    turns: _fabOpen ? 0.125 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.add),
+                  ),
                 ),
               ],
             ),

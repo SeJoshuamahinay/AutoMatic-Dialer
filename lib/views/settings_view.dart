@@ -8,6 +8,7 @@ import '../blocs/break/break_state.dart';
 import '../commons/models/break_session_model.dart';
 import '../commons/reusables/logout_dialog.dart';
 import '../commons/models/auth_models.dart';
+import '../commons/services/app_config.dart';
 import '../commons/services/environment_config.dart';
 import '../commons/services/shared_prefs_storage_service.dart';
 import 'profile_view.dart';
@@ -488,6 +489,44 @@ class _SettingsViewState extends State<SettingsView> {
             ),
             const SizedBox(height: 16),
 
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.purple.shade200),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    size: 14,
+                    color: Colors.purple,
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'App Version',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.purple,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'v${AppConfig.version}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
             ListTile(
               leading: const Icon(Icons.person),
               title: const Text('Profile'),
@@ -524,7 +563,9 @@ class _SettingsViewState extends State<SettingsView> {
             ListTile(
               leading: const Icon(Icons.info),
               title: const Text('About'),
-              subtitle: const Text('App version and information'),
+              subtitle: Text(
+                'v${AppConfig.version} — App version and information',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 _showAboutDialog();
@@ -565,7 +606,7 @@ class _SettingsViewState extends State<SettingsView> {
     showAboutDialog(
       context: context,
       applicationName: 'Lenderly Dialer',
-      applicationVersion: '1.0.0',
+      applicationVersion: AppConfig.version,
       applicationIcon: const Icon(Icons.phone, size: 48, color: Colors.purple),
       children: const [
         Text('A professional dialer app for loan collection teams.'),

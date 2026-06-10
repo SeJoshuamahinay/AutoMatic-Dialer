@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'app_config.dart';
 import 'environment_config.dart';
 import 'shared_prefs_storage_service.dart';
 
@@ -8,6 +9,14 @@ import 'shared_prefs_storage_service.dart';
 /// Navigation to /login is already handled by ApiClient before throwing.
 class AuthSessionExpiredException implements Exception {
   const AuthSessionExpiredException();
+}
+
+/// Thrown when the server rejects the request due to an outdated app version.
+class AppVersionOutdatedException implements Exception {
+  final String minVersion;
+  const AppVersionOutdatedException(this.minVersion);
+  @override
+  String toString() => 'App version outdated. Minimum required: $minVersion';
 }
 
 /// Centralized HTTP client.
@@ -31,6 +40,7 @@ class ApiClient {
           headers: {
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
+            'X-App-Version': AppConfig.version,
             ...?extraHeaders,
           },
         )
@@ -56,6 +66,7 @@ class ApiClient {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
+            'X-App-Version': AppConfig.version,
             ...?extraHeaders,
           },
           body: body != null ? jsonEncode(body) : null,
@@ -82,6 +93,7 @@ class ApiClient {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'Authorization': 'Bearer $token',
+            'X-App-Version': AppConfig.version,
             ...?extraHeaders,
           },
           body: body != null ? jsonEncode(body) : null,
@@ -94,6 +106,39 @@ class ApiClient {
   // ── Internal ───────────────────────────────────────────────────────────────
 
   static Future<void> _checkAuth(http.Response response) async {
+    // ── Version outdated ──────────────────────────────────────────────────
+    if (response.body.isNotEmpty) {
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        if (body['success'] == false && body['min_version'] != null) {
+          final minVersion = body['min_version'].toString();
+          final ctx = navigatorKey.currentContext;
+          if (ctx != null && ctx.mounted) {
+            showDialog<void>(
+              context: ctx,
+              barrierDismissible: false,
+              builder: (_) => AlertDialog(
+                title: const Text('Update Required'),
+                content: Text(
+                  'Your app version (${AppConfig.version}) is outdated.\n'
+                  'Please update to v$minVersion or higher to continue.',
+                ),
+                actions: [
+                  TextButton(onPressed: () {}, child: const Text('OK')),
+                ],
+              ),
+            );
+          }
+          throw AppVersionOutdatedException(minVersion);
+        }
+      } on AppVersionOutdatedException {
+        rethrow;
+      } catch (_) {
+        // Body is not JSON or doesn't match the version-outdated shape — ignore.
+      }
+    }
+
+    // ── Session expired ───────────────────────────────────────────────────
     if (response.statusCode == 302 || response.statusCode == 401) {
       await SharedPrefsStorageService.clearUserSession();
       final ctx = navigatorKey.currentContext;
