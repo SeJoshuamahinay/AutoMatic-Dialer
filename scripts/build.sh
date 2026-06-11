@@ -110,12 +110,14 @@ else
   UPLOAD_STATUS="⚠  SharePoint upload failed (APK saved locally)"
 fi
 
-# ── Open Outlook with pre-filled email ───────────────────────────────────────
-if [[ -n "$SHARE_LINK" ]]; then
-  SUBJECT="New Update Available: Dialer v${NEW_VER}"
-  BODY="Hi Team,
+# ── Send release email (reusable) ───────────────────────────────────────────
+_send_release_email() {
+  local ver="$1" link="$2"
+  local subject="New Update Available: Dialer v${ver}"
+  local body
+body="Hi Team,
 
-A new update for the Dialer (v${NEW_VER}) is now available!
+A new update for the Dialer (v${ver}) is now available!
 
 What's New:
 - Performance Optimization: Compressed and optimized for a much lighter, faster experience.
@@ -125,9 +127,9 @@ How to Download & Log In:
 1. Download: Please use Outlook to access and click the download link below.
 2. Login: Once installed, use your Symphony account credentials to log in to the app.
 
-Please click the link below to download version ${NEW_VER} as soon as possible to ensure everything runs smoothly and to avoid any work disruptions.
+Please click the link below to download version ${ver} as soon as possible to ensure everything runs smoothly and to avoid any work disruptions.
 
-Download: ${SHARE_LINK}
+Download: ${link}
 
 Let us know if you run into any issues!
 Email us for support and questions to it@lenderly.ph
@@ -138,19 +140,29 @@ Full Stack Software Engineer
 
 WhatsApp: +639669426920
 Email: jMahinay@lenderly.ph"
-
-  MAILTO_URL=$(python3 -c "
+  local mailto_url
+  mailto_url=$(python3 -c "
 import urllib.parse, sys
-subject = sys.argv[1]
-body = sys.argv[2]
 print('mailto:FieldCollector@lenderly.ph?cc=management@lenderly.ph&subject=' +
-      urllib.parse.quote(subject) + '&body=' + urllib.parse.quote(body))
-" "$SUBJECT" "$BODY")
-
+      urllib.parse.quote(sys.argv[1]) + '&body=' + urllib.parse.quote(sys.argv[2]))
+" "$subject" "$body")
   echo ""
   echo "▶ Opening Outlook with pre-filled email …"
-  open "$MAILTO_URL"
+  open "$mailto_url"
   echo "  ✔ Outlook opened — review and hit Send"
+}
+
+# ── Prompt to send / redo email ──────────────────────────────────────────────
+if [[ -n "$SHARE_LINK" ]]; then
+  while true; do
+    echo ""
+    read -rp "  Send release email? [Y/n] " SEND_EMAIL
+    [[ "$SEND_EMAIL" =~ ^[Nn]$ ]] && break
+    _send_release_email "$NEW_VER" "$SHARE_LINK"
+    echo ""
+    read -rp "  Redo / resend email? [y/N] " REDO_EMAIL
+    [[ ! "$REDO_EMAIL" =~ ^[Yy]$ ]] && break
+  done
 fi
 
 echo ""
