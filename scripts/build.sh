@@ -87,11 +87,78 @@ APK_DEST="$APK_DIR/lenderly-dialer-v${NEW_VER}-${DATE}.apk"
 
 cp "$APK_SRC" "$APK_DEST"
 
+# ── Upload to SharePoint ─────────────────────────────────────────────────────
+SHAREPOINT_DEST="lenderly:Infrastructure/APK FOLDER/version $NEW_VER"
+echo ""
+echo "▶ Uploading to SharePoint …"
+SHARE_LINK=""
+if rclone copy "$APK_DEST" "$SHAREPOINT_DEST" --progress; then
+  UPLOAD_STATUS="✔ Uploaded to SharePoint"
+  echo ""
+  echo "▶ Generating shareable link …"
+  APK_NAME=$(basename "$APK_DEST")
+  LINK_ERR=$(mktemp)
+  SHARE_LINK=$(rclone link "$SHAREPOINT_DEST/$APK_NAME" --onedrive-link-scope organization 2>"$LINK_ERR" || echo "")
+  if [[ -n "$SHARE_LINK" ]]; then
+    echo "  ✔ $SHARE_LINK"
+  else
+    echo "  ⚠  Could not generate link:"
+    cat "$LINK_ERR"
+  fi
+  rm -f "$LINK_ERR"
+else
+  UPLOAD_STATUS="⚠  SharePoint upload failed (APK saved locally)"
+fi
+
+# ── Open Outlook with pre-filled email ───────────────────────────────────────
+if [[ -n "$SHARE_LINK" ]]; then
+  SUBJECT="New Update Available: Dialer v${NEW_VER}"
+  BODY="Hi Team,
+
+A new update for the Dialer (v${NEW_VER}) is now available!
+
+What's New:
+- Performance Optimization: Compressed and optimized for a much lighter, faster experience.
+- UI Updates: Minor user interface tweaks for smoother navigation.
+
+How to Download & Log In:
+1. Download: Please use Outlook to access and click the download link below.
+2. Login: Once installed, use your Symphony account credentials to log in to the app.
+
+Please click the link below to download version ${NEW_VER} as soon as possible to ensure everything runs smoothly and to avoid any work disruptions.
+
+Download: ${SHARE_LINK}
+
+Let us know if you run into any issues!
+Email us for support and questions to it@lenderly.ph
+
+Best Regards,
+Joshua Mahinay
+Full Stack Software Engineer
+
+WhatsApp: +639669426920
+Email: jMahinay@lenderly.ph"
+
+  MAILTO_URL=$(python3 -c "
+import urllib.parse, sys
+subject = sys.argv[1]
+body = sys.argv[2]
+print('mailto:FieldCollector@lenderly.ph?cc=management@lenderly.ph&subject=' +
+      urllib.parse.quote(subject) + '&body=' + urllib.parse.quote(body))
+" "$SUBJECT" "$BODY")
+
+  echo ""
+  echo "▶ Opening Outlook with pre-filled email …"
+  open "$MAILTO_URL"
+  echo "  ✔ Outlook opened — review and hit Send"
+fi
+
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║  ✔  Build complete                                           ║"
 echo "╠══════════════════════════════════════════════════════════════╣"
 printf "║  Version  : %-49s║\n" "$NEW_VER  (build #$NEW_BUILD)"
 printf "║  APK      : %-49s║\n" "$(basename "$APK_DEST")"
+printf "║  Upload   : %-49s║\n" "$UPLOAD_STATUS"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
