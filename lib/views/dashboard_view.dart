@@ -16,6 +16,7 @@ import 'package:lenderly_dialer/commons/models/break_session_model.dart';
 import 'package:lenderly_dialer/commons/models/call_log_model.dart';
 import 'package:lenderly_dialer/commons/reusables/toast.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
+import 'package:lenderly_dialer/commons/services/app_config.dart';
 import 'package:lenderly_dialer/commons/services/environment_config.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 import 'package:lenderly_dialer/views/attendance_request_view.dart';
@@ -425,6 +426,7 @@ class _DashboardViewState extends State<DashboardView> {
     final uri = Uri.parse('${EnvironmentConfig.apiBaseUrl}$endpoint');
     final request = http.MultipartRequest('POST', uri)
       ..headers['Accept'] = 'application/json'
+      ..headers['X-App-Version'] = AppConfig.version
       ..fields.addAll(fields);
 
     if (token != null && token.isNotEmpty) {

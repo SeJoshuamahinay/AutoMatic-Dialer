@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
+import 'package:lenderly_dialer/commons/services/app_config.dart';
 import 'package:lenderly_dialer/commons/services/environment_config.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 
@@ -509,6 +510,7 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
     );
     final request = http.MultipartRequest('POST', uri)
       ..headers['Accept'] = 'application/json'
+      ..headers['X-App-Version'] = AppConfig.version
       ..fields.addAll(fields);
 
     if (token != null && token.isNotEmpty) {

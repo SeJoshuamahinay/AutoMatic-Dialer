@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lenderly_dialer/commons/models/loan_models.dart';
+import 'package:lenderly_dialer/commons/widgets/loan_card_actions_menu.dart';
 
 /// Stateless card for a single loan record in a bucket list.
 /// Extracted so Flutter can skip rebuilds for unchanged items.
@@ -9,7 +10,6 @@ class BucketLoanCard extends StatelessWidget {
   final int index;
   final Color themeColor;
   final Color secondaryColor;
-
   final VoidCallback onViewDetails;
   final VoidCallback onFollowUp;
   final VoidCallback? onCallPhone;
@@ -50,6 +50,7 @@ class BucketLoanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = record;
     final hasLastFollowUp = r.lastLafuDate != null;
+    final lastFollowUpSubject = (r.lastLafuSubject ?? '').trim();
     final avatarBg = themeColor.withValues(alpha: 0.15);
     final avatarFg = themeColor;
 
@@ -67,7 +68,6 @@ class BucketLoanCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Header row ─────────────────────────────────────────
                 Row(
                   children: [
                     CircleAvatar(
@@ -138,7 +138,6 @@ class BucketLoanCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                // ── Due date + last follow-up ───────────────────────────
                 Row(
                   children: [
                     Icon(
@@ -188,137 +187,37 @@ class BucketLoanCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                // ── Action buttons ─────────────────────────────────────
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: onViewDetails,
-                        icon: const Icon(Icons.description_outlined, size: 14),
-                        label: const Text(
-                          'View Details',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: themeColor,
-                          side: BorderSide(color: themeColor),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    if (lastFollowUpSubject.isNotEmpty) ...[
+                      Expanded(
+                        child: Text(
+                          'Subject: $lastFollowUpSubject',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: themeColor,
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: onFollowUp,
-                        icon: const Icon(Icons.add_comment_outlined, size: 14),
-                        label: const Text(
-                          'Follow-up',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: secondaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 6,
-                          ),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    LoanCardActionsMenu(
+                      themeColor: themeColor,
+                      secondaryColor: secondaryColor,
+                      onViewDetails: onViewDetails,
+                      onFollowUp: onFollowUp,
+                      onCallPhone: onCallPhone,
+                      onCallMobile: onCallMobile,
                     ),
                   ],
                 ),
-                // ── Phone buttons ──────────────────────────────────────
-                if (r.hasValidPhone) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      if (r.hasPhone && onCallPhone != null)
-                        Expanded(
-                          child: _CallBtn(
-                            icon: Icons.phone,
-                            label: 'Call Phone',
-                            color: themeColor,
-                            onTap: onCallPhone!,
-                          ),
-                        ),
-                      if (r.hasPhone && r.hasMobile) const SizedBox(width: 8),
-                      if (r.hasMobile && onCallMobile != null)
-                        Expanded(
-                          child: _CallBtn(
-                            icon: Icons.phone_android,
-                            label: 'Call Mobile',
-                            color: secondaryColor,
-                            onTap: onCallMobile!,
-                          ),
-                        ),
-                    ],
-                  ),
-                ] else ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.phone_disabled,
-                        size: 14,
-                        color: Colors.grey.shade400,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'No phone number available',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _CallBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _CallBtn({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 14),
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
   }

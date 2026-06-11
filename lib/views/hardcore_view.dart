@@ -181,40 +181,75 @@ class _HardcoreViewBodyState extends State<_HardcoreViewBody> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F6),
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Hardcore Bucket',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+    return BlocBuilder<BucketListBloc, BucketListState>(
+      builder: (context, state) {
+        final loaded = state is BucketListLoaded ? state : null;
+        return Scaffold(
+          backgroundColor: const Color(0xFFFFF8F6),
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Hardcore Bucket',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                Text(
+                  'High-priority overdue accounts',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.red.shade100,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ],
             ),
-            Text(
-              'High-priority overdue accounts',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.red.shade100,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: _themeColor,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        toolbarHeight: 70,
-      ),
-      body: BlocBuilder<BucketListBloc, BucketListState>(
-        builder: (context, state) {
-          return RefreshIndicator(
+            backgroundColor: _themeColor,
+            foregroundColor: Colors.white,
+            elevation: 2,
+            toolbarHeight: 70,
+            bottom: loaded != null
+                ? PreferredSize(
+                    preferredSize: const Size.fromHeight(30),
+                    child: Container(
+                      color: Colors.red.shade700,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Center(
+                        child: Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 16,
+                          runSpacing: 8,
+                          children: [
+                            _statChip(
+                              Icons.folder,
+                              'Total',
+                              '${loaded.totalCount}',
+                            ),
+                            _statChip(
+                              Icons.phone,
+                              'Dialable',
+                              '${loaded.records.where((r) => r.hasValidPhone).length}',
+                            ),
+                            _statChip(
+                              Icons.download_outlined,
+                              'Loaded',
+                              '${loaded.records.length}',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+          body: RefreshIndicator(
             onRefresh: _loadInitial,
             color: _themeColor,
             child: SafeArea(child: _buildBody(state)),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -296,40 +331,6 @@ class _HardcoreViewBodyState extends State<_HardcoreViewBody> {
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 12,
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  _statTile(
-                    Icons.folder,
-                    'Total',
-                    '${s.totalCount}',
-                    Colors.red.shade400,
-                  ),
-                  _statTile(
-                    Icons.phone,
-                    'Dialable',
-                    '${s.records.where((r) => r.hasValidPhone).length}',
-                    Colors.orange.shade600,
-                  ),
-                  _statTile(
-                    Icons.download_outlined,
-                    'Loaded',
-                    '${s.records.length}',
-                    Colors.deepOrange.shade400,
-                  ),
-                ],
               ),
             ),
           ),
@@ -419,31 +420,25 @@ class _HardcoreViewBodyState extends State<_HardcoreViewBody> {
     );
   }
 
-  Widget _statTile(IconData icon, String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(8),
+  Widget _statChip(IconData icon, String label, String value) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: Colors.white70),
+        const SizedBox(width: 4),
+        Text(
+          '$label: ',
+          style: const TextStyle(fontSize: 11, color: Colors.white70),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 10, color: Colors.black54),
-            ),
-            Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-            ),
-          ],
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-      ),
+      ],
     );
   }
 }

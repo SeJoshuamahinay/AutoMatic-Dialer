@@ -253,183 +253,151 @@ class _SearchLoanViewState extends State<SearchLoanView> {
         onTap: () => _openLoanDetail(result),
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header row
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.indigo.shade100,
-                    radius: 22,
-                    child: Text(
-                      '#${result.loanId}',
-                      style: TextStyle(
-                        color: Colors.indigo.shade800,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                    ),
+              CircleAvatar(
+                backgroundColor: Colors.indigo.shade100,
+                radius: 22,
+                child: Text(
+                  '#${result.loanId}',
+                  style: TextStyle(
+                    color: Colors.indigo.shade800,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name.toUpperCase(),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if ((result.borrowerCity ?? '').isNotEmpty)
-                          Text(
-                            result.borrowerCity!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[800],
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        if (result.accountNumber != null)
-                          Text(
-                            'Account: ${result.accountNumber}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        if (result.uniqueNumber != null)
-                          Text(
-                            'Loan No: ${result.uniqueNumber}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
-
-              // Phone section
-              if (hasMobile || hasPhone) ...[
-                const Divider(height: 20),
-                if (hasMobile)
-                  _buildPhoneRow(Icons.phone_android, 'Mobile', result.mobile!),
-                if (hasMobile && hasPhone) const SizedBox(height: 4),
-                if (hasPhone)
-                  _buildPhoneRow(Icons.phone, 'Phone', result.phone!),
-                const SizedBox(height: 12),
-                Row(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (hasMobile)
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _makePhoneCall(
-                            result.mobile!,
-                            name,
-                            loanId: result.loanId,
-                            borrowerId: result.borrowerId,
-                          ),
-                          icon: const Icon(Icons.phone_android, size: 16),
-                          label: const Text('Call Mobile'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.indigo,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                        ),
+                    Text(
+                      name.toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
                       ),
-                    if (hasMobile && hasPhone) const SizedBox(width: 8),
-                    if (hasPhone)
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _makePhoneCall(
-                            result.phone!,
-                            name,
-                            loanId: result.loanId,
-                            borrowerId: result.borrowerId,
-                          ),
-                          icon: const Icon(Icons.phone, size: 16),
-                          label: const Text('Call Phone'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey[700],
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if ((result.borrowerCity ?? '').isNotEmpty)
+                      Text(
+                        result.borrowerCity!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
                         ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    if (result.accountNumber != null)
+                      Text(
+                        'Account: ${result.accountNumber}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    if (result.uniqueNumber != null)
+                      Text(
+                        'Loan No: ${result.uniqueNumber}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                   ],
                 ),
-              ] else
-                const SizedBox(height: 4),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 44,
+                child: PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.blueGrey),
+                  tooltip: 'Actions',
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'details':
+                        _openLoanDetail(result);
+                        break;
+                      case 'follow_up':
+                        _openFollowUp(result);
+                        break;
+                      case 'call_phone':
+                        _makePhoneCall(
+                          result.phone!,
+                          name,
+                          loanId: result.loanId,
+                          borrowerId: result.borrowerId,
+                        );
+                        break;
+                      case 'call_mobile':
+                        _makePhoneCall(
+                          result.mobile!,
+                          name,
+                          loanId: result.loanId,
+                          borrowerId: result.borrowerId,
+                        );
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) {
+                    final items = <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'details',
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 18),
+                            SizedBox(width: 10),
+                            Text('View details'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'follow_up',
+                        child: Row(
+                          children: [
+                            Icon(Icons.add_comment_outlined, size: 18),
+                            SizedBox(width: 10),
+                            Text('Follow-up'),
+                          ],
+                        ),
+                      ),
+                    ];
 
-              // ── Action buttons row ─────────────────────────────────────
-              const Divider(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openLoanDetail(result),
-                      icon: const Icon(Icons.info_outline, size: 15),
-                      label: const Text('View Details'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.indigo,
-                        side: const BorderSide(color: Colors.indigo),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                    if (hasPhone) {
+                      items.add(
+                        const PopupMenuItem<String>(
+                          value: 'call_phone',
+                          child: Row(
+                            children: [
+                              Icon(Icons.phone, size: 18),
+                              SizedBox(width: 10),
+                              Text('Call phone'),
+                            ],
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 9),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openFollowUp(result),
-                      icon: const Icon(Icons.note_add, size: 15),
-                      label: const Text('Follow Up'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                      );
+                    }
+
+                    if (hasMobile) {
+                      items.add(
+                        const PopupMenuItem<String>(
+                          value: 'call_mobile',
+                          child: Row(
+                            children: [
+                              Icon(Icons.phone_android, size: 18),
+                              SizedBox(width: 10),
+                              Text('Call mobile'),
+                            ],
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 9),
-                      ),
-                    ),
-                  ),
-                ],
+                      );
+                    }
+
+                    return items;
+                  },
+                ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildPhoneRow(IconData icon, String label, String number) {
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: Colors.grey[600]),
-        const SizedBox(width: 6),
-        Text(
-          '$label: ',
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-        ),
-        Text(number, style: const TextStyle(fontSize: 13)),
-      ],
     );
   }
 
