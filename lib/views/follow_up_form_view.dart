@@ -64,6 +64,7 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
     'palawan_express',
     'cebuana',
     'western_union',
+    'N/A',
   ];
 
   static const List<String> _likelihoods = [
