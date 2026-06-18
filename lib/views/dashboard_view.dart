@@ -198,7 +198,7 @@ class _DashboardViewState extends State<DashboardView> {
             crossAxisCount: 2,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            childAspectRatio: 1.2,
+            childAspectRatio: 2.0,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             children: [
@@ -222,6 +222,20 @@ class _DashboardViewState extends State<DashboardView> {
                 icon: Icons.logout,
                 color: const Color(0xFFF59E0B),
                 onTap: _openTimeOutPage,
+              ),
+              _quickActionCard(
+                title: 'Reimbursements',
+                subtitle: 'Request draft only',
+                icon: Icons.receipt_long,
+                color: const Color(0xFF8B5CF6),
+                onTap: _openReimbursementActionSheet,
+              ),
+              _quickActionCard(
+                title: 'Payment Verification',
+                subtitle: 'Verify payments',
+                icon: Icons.account_balance,
+                color: const Color.fromARGB(255, 23, 40, 234),
+                onTap: _openReimbursementActionSheet,
               ),
               //for release in v1.2.0
               // _quickActionCard(
@@ -247,46 +261,74 @@ class _DashboardViewState extends State<DashboardView> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(11),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [color, color.withValues(alpha: 0.82)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
+          color: color,
+          borderRadius: BorderRadius.circular(11),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: Colors.white),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                shape: BoxShape.circle,
+                color: const Color.fromARGB(
+                  255,
+                  0,
+                  0,
+                  0,
+                ).withValues(alpha: 0.02),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color.fromARGB(
+                      255,
+                      0,
+                      0,
+                      0,
+                    ).withValues(alpha: 0.12),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
+                ],
+              ),
+              child: Icon(icon, color: Colors.white, size: 21),
+            ),
+
+            const SizedBox(width: 9),
+
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.3,
+                      height: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 10,
+                      height: 1.0,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
