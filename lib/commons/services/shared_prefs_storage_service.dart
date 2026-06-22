@@ -9,6 +9,7 @@ class SharedPrefsStorageService {
   static const String _userCredentialsKey = 'user_credentials';
   static const String _rememberMeKey = 'remember_me';
   static const String _lastUsernameKey = 'last_username';
+  static const String _userProfileKey = 'user_profile';
 
   static SharedPreferences? _prefs;
 
@@ -179,6 +180,39 @@ class SharedPrefsStorageService {
     }
   }
 
+  /// Save user profile data from API
+  static Future<void> saveUserProfile(Map<String, dynamic> profile) async {
+    try {
+      final prefs = await _instance;
+      await prefs.setString(_userProfileKey, jsonEncode(profile));
+    } catch (e) {
+      if (EnvironmentConfig.enableLogging) {}
+    }
+  }
+
+  /// Get saved user profile data
+  static Future<Map<String, dynamic>?> getUserProfile() async {
+    try {
+      final prefs = await _instance;
+      final jsonString = prefs.getString(_userProfileKey);
+      if (jsonString == null) return null;
+      return jsonDecode(jsonString) as Map<String, dynamic>;
+    } catch (e) {
+      if (EnvironmentConfig.enableLogging) {}
+      return null;
+    }
+  }
+
+  /// Clear user profile data
+  static Future<void> clearUserProfile() async {
+    try {
+      final prefs = await _instance;
+      await prefs.remove(_userProfileKey);
+    } catch (e) {
+      if (EnvironmentConfig.enableLogging) {}
+    }
+  }
+
   /// Get the last used username
   static Future<String?> getLastUsername() async {
     try {
@@ -207,6 +241,7 @@ class SharedPrefsStorageService {
     try {
       await clearUserSession();
       await clearUserCredentials();
+      await clearUserProfile();
       await clearLastUsername();
 
       if (EnvironmentConfig.enableLogging) {}

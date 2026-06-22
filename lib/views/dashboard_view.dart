@@ -20,6 +20,7 @@ import 'package:lenderly_dialer/commons/services/app_config.dart';
 import 'package:lenderly_dialer/commons/services/environment_config.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 import 'package:lenderly_dialer/views/attendance_request_view.dart';
+import 'package:lenderly_dialer/views/reimbursement_view.dart';
 import 'package:lenderly_dialer/views/visitation_request_view.dart';
 
 class DashboardView extends StatefulWidget {
@@ -225,17 +226,17 @@ class _DashboardViewState extends State<DashboardView> {
               ),
               _quickActionCard(
                 title: 'Reimbursements',
-                subtitle: 'Request draft only',
+                subtitle: 'Create & track requests',
                 icon: Icons.receipt_long,
                 color: const Color(0xFF8B5CF6),
-                onTap: _openReimbursementActionSheet,
+                onTap: _openReimbursementPage,
               ),
               _quickActionCard(
                 title: 'Payment Verification',
                 subtitle: 'Verify payments',
                 icon: Icons.account_balance,
                 color: const Color.fromARGB(255, 23, 40, 234),
-                onTap: _openReimbursementActionSheet,
+                onTap: _openReimbursementPage,
               ),
               //for release in v1.2.0
               // _quickActionCard(
@@ -924,74 +925,9 @@ class _DashboardViewState extends State<DashboardView> {
     notesController.dispose();
   }
 
-  Future<void> _openReimbursementActionSheet() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
-            MediaQuery.of(context).viewInsets.bottom + 16,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Reimbursement Request',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Amount',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Receipt / Attachment Ref',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showSnack('Reimbursement draft ready.');
-                    },
-                    child: const Text('Prepare Draft'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Add backend fields later for amount, reason, and attachment.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+  Future<void> _openReimbursementPage() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const ReimbursementView()),
     );
   }
 

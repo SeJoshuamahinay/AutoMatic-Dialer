@@ -28,7 +28,6 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   void initState() {
     super.initState();
-    // Load break history when the view is initialized
     context.read<BreakBloc>().add(const LoadBreakHistory());
     _loadUserSession();
   }
@@ -65,11 +64,9 @@ class _SettingsViewState extends State<SettingsView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildBreakControls(),
+            // _buildBreakControls(),
             const SizedBox(height: 24),
-            _buildSettingsSection(),
-            const SizedBox(height: 24),
-            _buildAccountSection(),
+            _buildAppInfoCard(),
           ],
         ),
       ),
@@ -197,7 +194,6 @@ class _SettingsViewState extends State<SettingsView> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Add button to navigate to full break management
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -252,7 +248,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  Widget _buildSettingsSection() {
+  Widget _buildAppInfoCard() {
     return Card(
       elevation: 2,
       child: Padding(
@@ -265,99 +261,30 @@ class _SettingsViewState extends State<SettingsView> {
                 const Icon(Icons.settings, color: Colors.purple),
                 const SizedBox(width: 8),
                 const Text(
-                  'App Settings',
+                  'App Info',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
             const SizedBox(height: 16),
+
+            // Profile link
             ListTile(
-              leading: const Icon(Icons.notifications),
-              title: const Text('Notifications'),
-              subtitle: const Text('Configure call notifications'),
-              trailing: Switch(
-                value: true,
-                onChanged: (value) {
-                  // Handle notification toggle
-                },
-              ),
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.person),
+              title: const Text('Profile'),
+              subtitle: const Text('View profile and change password'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileView()),
+                );
+              },
             ),
-          ],
-        ),
-      ),
-    );
-  }
+            const Divider(),
 
-  Widget _buildAccountSection() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.account_circle, color: Colors.purple),
-                const SizedBox(width: 8),
-                const Text(
-                  'Account',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // User info section
-            if (userSession != null) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.purple.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.purple.shade200,
-                      child: Text(
-                        _getInitials(userSession!.fullName),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.purple,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            userSession!.fullName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Text(
-                            userSession!.email,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Debug: auth token display
+            // Auth token debug
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -414,8 +341,9 @@ class _SettingsViewState extends State<SettingsView> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
+            // Environment
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -487,8 +415,9 @@ class _SettingsViewState extends State<SettingsView> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
+            // Version
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -527,29 +456,6 @@ class _SettingsViewState extends State<SettingsView> {
             ),
             const SizedBox(height: 16),
 
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Profile'),
-              subtitle: const Text('View and edit your profile'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ProfileView()),
-                );
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.security),
-              title: const Text('Security'),
-              subtitle: const Text('Change password and security settings'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                // Navigate to security settings
-              },
-            ),
-            const Divider(),
             ListTile(
               leading: const Icon(Icons.help),
               title: const Text('Help & Support'),
@@ -632,15 +538,5 @@ class _SettingsViewState extends State<SettingsView> {
     } else {
       return '${seconds}s';
     }
-  }
-
-  String _getInitials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    } else if (parts.isNotEmpty) {
-      return parts[0][0].toUpperCase();
-    }
-    return 'U';
   }
 }
