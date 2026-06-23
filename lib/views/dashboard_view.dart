@@ -21,6 +21,7 @@ import 'package:lenderly_dialer/commons/services/environment_config.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 import 'package:lenderly_dialer/views/attendance_request_view.dart';
 import 'package:lenderly_dialer/views/reimbursement_view.dart';
+import 'package:lenderly_dialer/views/rcbc_verification_modal.dart';
 import 'package:lenderly_dialer/views/visitation_request_view.dart';
 
 class DashboardView extends StatefulWidget {
@@ -236,7 +237,9 @@ class _DashboardViewState extends State<DashboardView> {
                 subtitle: 'Verify payments',
                 icon: Icons.account_balance,
                 color: const Color.fromARGB(255, 23, 40, 234),
-                onTap: _openReimbursementPage,
+                onTap: () {
+                  RcbcVerificationModal.show(context);
+                },
               ),
               //for release in v1.2.0
               // _quickActionCard(
@@ -926,9 +929,9 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Future<void> _openReimbursementPage() async {
-    await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const ReimbursementView()),
-    );
+    await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute(builder: (_) => const ReimbursementView()));
   }
 
   @override
