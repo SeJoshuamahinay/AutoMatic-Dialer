@@ -395,7 +395,7 @@ class _FormTabState extends State<_FormTab> {
   DateTime? _dateIncurred;
   DateTime? _dateReimbursed;
   DateTime? _dateApproved;
-  String _status = 'pending';
+  final String _status = 'pending';
 
   static const _statuses = ['pending', 'approved', 'rejected'];
 
@@ -525,7 +525,7 @@ class _FormTabState extends State<_FormTab> {
           imageQuality: 80,
         );
         if (file != null && mounted) {
-          final fileBytes = await File(file.path!).readAsBytes();
+          final fileBytes = await File(file.path).readAsBytes();
           setState(() {
             _attachment = PlatformFile(
               name: file.name,
@@ -541,7 +541,7 @@ class _FormTabState extends State<_FormTab> {
           imageQuality: 80,
         );
         if (file != null && mounted) {
-          final fileBytes = await File(file.path!).readAsBytes();
+          final fileBytes = await File(file.path).readAsBytes();
           setState(() {
             _attachment = PlatformFile(
               name: file.name,

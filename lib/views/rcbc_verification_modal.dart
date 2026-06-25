@@ -65,17 +65,14 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
 
     try {
       final response = await ApiClient.post(
-        '/api/rcbc/verify-reference',
-        body: {
-          'reference_number': reference,
-          'amount': parsedAmount,
-        },
+        '/api/rcbc-payment-verifications/verify-reference',
+        body: {'reference_number': reference, 'amount': parsedAmount},
       );
 
       if (!mounted) return;
 
       final body = jsonDecode(response.body) as Map<String, dynamic>;
-
+      print('RCBC Verification Response: $body');
       if (body['success'] == true) {
         setState(() {
           _result = body['transaction'] as Map<String, dynamic>?;
@@ -101,9 +98,9 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
 
   void _showError(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
   void _reset() {
@@ -150,7 +147,8 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 16),
-            if (_stage == _Stage.form || _stage == _Stage.loading) ..._buildForm(),
+            if (_stage == _Stage.form || _stage == _Stage.loading)
+              ..._buildForm(),
             if (_stage == _Stage.success) ..._buildSuccess(),
             if (_stage == _Stage.error) ..._buildError(),
           ],
@@ -388,10 +386,7 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF64748B),
-              ),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
           ),
           Expanded(
@@ -433,10 +428,74 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
           const SizedBox(height: 6),
           _row('Unique No.', p['unique_number']?.toString() ?? '-'),
           _row('Ref. No.', p['reference_number']?.toString() ?? '-'),
-          _row('Amount', '₱ ${_currencyFmt.format(double.tryParse(p['amount']?.toString() ?? '0') ?? 0)}'),
-          _row('Status', p['status']?.toString() ?? '-'),
+          _row(
+            'Amount',
+            '₱ ${_currencyFmt.format(double.tryParse(p['amount']?.toString() ?? '0') ?? 0)}',
+          ),
+          _statusRow(p['status']?.toString() ?? '-'),
           if (p['submitted_by'] != null)
             _row('Submitted By', p['submitted_by'].toString()),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusRow(String status) {
+    final normalized = status.toLowerCase();
+    Color bgColor;
+    Color textColor;
+    IconData? icon;
+
+    if (normalized == 'posted') {
+      bgColor = Colors.green.shade50;
+      textColor = Colors.green.shade700;
+      icon = Icons.check_circle;
+    } else if (normalized == 'pending') {
+      bgColor = Colors.orange.shade50;
+      textColor = Colors.orange.shade800;
+      icon = Icons.schedule;
+    } else {
+      bgColor = Colors.red.shade50;
+      textColor = Colors.red.shade700;
+      icon = Icons.cancel;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(
+            width: 120,
+            child: Text(
+              'Status',
+              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 14, color: textColor),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -14,6 +14,7 @@ import 'package:lenderly_dialer/blocs/dashboard/dashboard_state.dart';
 import 'package:lenderly_dialer/commons/models/auth_models.dart';
 import 'package:lenderly_dialer/commons/models/break_session_model.dart';
 import 'package:lenderly_dialer/commons/models/call_log_model.dart';
+import 'package:lenderly_dialer/commons/reusables/app_lifecycle_guard.dart';
 import 'package:lenderly_dialer/commons/reusables/toast.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'package:lenderly_dialer/commons/services/app_config.dart';
@@ -23,6 +24,7 @@ import 'package:lenderly_dialer/views/attendance_request_view.dart';
 import 'package:lenderly_dialer/views/reimbursement_view.dart';
 import 'package:lenderly_dialer/views/rcbc_verification_modal.dart';
 import 'package:lenderly_dialer/views/visitation_request_view.dart';
+import 'package:lenderly_dialer/views/rcbc_posting_request_view.dart';
 
 class DashboardView extends StatefulWidget {
   const DashboardView({super.key});
@@ -41,13 +43,9 @@ class _DashboardViewState extends State<DashboardView> {
   void initState() {
     super.initState();
     _now = DateTime.now();
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {
-          _now = DateTime.now();
-        });
-      }
-    });
+    _startClock();
+
+    AppLifecycleGuard.instance.register(_pauseClock, _resumeClock);
 
     final bloc = context.read<DashboardBloc>();
     bloc
@@ -58,8 +56,32 @@ class _DashboardViewState extends State<DashboardView> {
 
   @override
   void dispose() {
+    AppLifecycleGuard.instance.unregister(_pauseClock, _resumeClock);
     _clockTimer?.cancel();
     super.dispose();
+  }
+
+  void _startClock() {
+    _clockTimer?.cancel();
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _now = DateTime.now();
+        });
+      }
+    });
+  }
+
+  void _pauseClock() {
+    _clockTimer?.cancel();
+    _clockTimer = null;
+  }
+
+  void _resumeClock() {
+    if (mounted) {
+      _now = DateTime.now();
+      _startClock();
+    }
   }
 
   Future<void> _onStateChanged(
@@ -239,6 +261,19 @@ class _DashboardViewState extends State<DashboardView> {
                 color: const Color.fromARGB(255, 23, 40, 234),
                 onTap: () {
                   RcbcVerificationModal.show(context);
+                },
+              ),
+              _quickActionCard(
+                title: 'Posting Request',
+                subtitle: 'Request posting of payments',
+                icon: Icons.account_balance_wallet,
+                color: const Color.fromARGB(255, 234, 58, 23),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const RcbcPostingRequestView(),
+                    ),
+                  );
                 },
               ),
               //for release in v1.2.0

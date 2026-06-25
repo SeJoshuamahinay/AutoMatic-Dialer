@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:ui';
 import 'blocs/bloc_providers.dart';
+import 'commons/reusables/app_lifecycle_guard.dart';
 import 'commons/services/environment_config.dart';
 import 'commons/services/shared_prefs_storage_service.dart';
 import 'commons/services/api_client.dart';
@@ -120,12 +121,14 @@ class MyApp extends StatelessWidget {
         navigatorKey: ApiClient.navigatorKey,
         builder: (context, child) {
           // Enhanced error boundary for gesture-related errors
-          return _GestureErrorWrapper(
-            child:
-                child ??
-                const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                ),
+          return _AppLifecycleGuardWrapper(
+            child: _GestureErrorWrapper(
+              child:
+                  child ??
+                  const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  ),
+            ),
           );
         },
         theme: ThemeData(
@@ -155,6 +158,34 @@ class MyApp extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Initializes the AppLifecycleGuard at the root of the widget tree.
+class _AppLifecycleGuardWrapper extends StatefulWidget {
+  final Widget child;
+
+  const _AppLifecycleGuardWrapper({required this.child});
+
+  @override
+  State<_AppLifecycleGuardWrapper> createState() =>
+      _AppLifecycleGuardWrapperState();
+}
+
+class _AppLifecycleGuardWrapperState extends State<_AppLifecycleGuardWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    AppLifecycleGuard.instance.initialize();
+  }
+
+  @override
+  void dispose() {
+    AppLifecycleGuard.instance.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// Enhanced wrapper widget to handle gesture-related errors gracefully
