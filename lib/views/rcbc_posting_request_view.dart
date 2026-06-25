@@ -904,7 +904,7 @@ class _PostingCardState extends State<_PostingCard>
                       children: [
                         // Borrower name
                         Text(
-                          r.loan?.displayBorrower ?? '—',
+                          r.loan?.displayBorrower.toUpperCase() ?? '—',
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 14,
