@@ -5,6 +5,7 @@ import 'package:lenderly_dialer/blocs/rcbc_posting/rcbc_posting_bloc.dart';
 import 'package:lenderly_dialer/blocs/rcbc_posting/rcbc_posting_event.dart';
 import 'package:lenderly_dialer/blocs/rcbc_posting/rcbc_posting_state.dart';
 import 'package:lenderly_dialer/commons/models/rcbc_posting_model.dart';
+import 'package:lenderly_dialer/views/rcbc_posting_request_form.dart';
 
 // ─────────────────────────────────────────────
 // View
@@ -120,6 +121,21 @@ class _RcbcPostingRequestViewState extends State<RcbcPostingRequestView> {
             'Posting Requests',
             style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
           ),
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: _accentColor,
+          foregroundColor: Colors.white,
+          icon: const Icon(Icons.add, size: 22),
+          label: const Text(
+            'Request Posting',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
+          onPressed: () async {
+            final result = await RcbcPostingRequestForm.open(context);
+            if (result == true && mounted) {
+              _refreshWithCurrentFilters();
+            }
+          },
         ),
         body: BlocConsumer<RcbcPostingBloc, RcbcPostingState>(
           listener: (context, state) {

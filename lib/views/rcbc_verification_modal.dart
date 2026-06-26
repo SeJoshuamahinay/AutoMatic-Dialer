@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
+import 'package:lenderly_dialer/views/rcbc_posting_request_form.dart';
 
 class RcbcVerificationModal extends StatefulWidget {
   final VoidCallback? onVerified;
@@ -272,6 +273,43 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
         ...postings.map((p) => _postingCard(p as Map<String, dynamic>)),
       ],
       const SizedBox(height: 20),
+      if (postings.isEmpty) ...[
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: () {
+              final reference = _referenceCtrl.text.trim();
+              final amount = double.tryParse(_amountCtrl.text.trim());
+              final navigator = Navigator.of(context);
+              navigator.pop();
+              navigator.push(
+                MaterialPageRoute(
+                  builder: (_) => RcbcPostingRequestForm(
+                    initialReference: reference,
+                    initialAmount: amount,
+                    initialPostingDate: tx['posting_date']?.toString(),
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text('Request Posting'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F3D3E),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+      ],
       SizedBox(
         width: double.infinity,
         height: 48,

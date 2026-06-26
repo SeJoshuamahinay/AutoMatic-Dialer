@@ -214,7 +214,7 @@ class _DashboardViewState extends State<DashboardView> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Tap an action to prepare a draft. Backend fields can be wired later.',
+            'Tap an action to use.',
             style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 12),
