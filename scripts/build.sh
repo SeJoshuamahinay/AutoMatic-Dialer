@@ -143,7 +143,7 @@ Email: jMahinay@lenderly.ph"
   local mailto_url
   mailto_url=$(python3 -c "
 import urllib.parse, sys
-print('mailto:FieldCollector@lenderly.ph?cc=management@lenderly.ph&subject=' +
+print('mailto:FieldCollector@lenderly.ph,Payments@lenderly.ph?cc=management@lenderly.ph&subject=' +
       urllib.parse.quote(sys.argv[1]) + '&body=' + urllib.parse.quote(sys.argv[2]))
 " "$subject" "$body")
   echo ""
