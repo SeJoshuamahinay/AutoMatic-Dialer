@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'app_config.dart';
 import 'environment_config.dart';
 import 'shared_prefs_storage_service.dart';
@@ -112,6 +113,7 @@ class ApiClient {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         if (body['success'] == false && body['min_version'] != null) {
           final minVersion = body['min_version'].toString();
+          final updateUrl = body['update_url']?.toString();
           final ctx = navigatorKey.currentContext;
           if (ctx != null && ctx.mounted) {
             showDialog<void>(
@@ -119,9 +121,34 @@ class ApiClient {
               barrierDismissible: false,
               builder: (_) => AlertDialog(
                 title: const Text('Update Required'),
-                content: Text(
-                  'Your app version (${AppConfig.version}) is outdated.\n'
-                  'Please update to v$minVersion or higher to continue.',
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your app version (${AppConfig.version}) is outdated.\n'
+                      'Please update to v$minVersion or higher to continue.',
+                    ),
+                    if (updateUrl != null && updateUrl.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () async {
+                          final uri = Uri.tryParse(updateUrl);
+                          if (uri != null && await canLaunchUrl(uri)) {
+                            await launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        child: Text(
+                          updateUrl,
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 actions: [
                   TextButton(onPressed: () {}, child: const Text('OK')),

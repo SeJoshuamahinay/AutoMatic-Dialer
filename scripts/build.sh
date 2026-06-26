@@ -165,6 +165,33 @@ if [[ -n "$SHARE_LINK" ]]; then
   done
 fi
 
+# ── Artisan commands ────────────────────────────────────────────────────────
+if [[ -n "$SHARE_LINK" ]]; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════════════╗"
+  echo "║  Run these on SSH via php artisan tinker                             ║"
+  echo "╠══════════════════════════════════════════════════════════════════════╣"
+  echo "║                                                                      ║"
+  echo "║  php artisan tinker --execute=\"App\Models\Setting::setValue(         ║"
+  echo "║    'lenderly_dialer_min_version', '$NEW_VER'                         ║"
+  echo "║  );\"                                                                 ║"
+  echo "║                                                                      ║"
+  echo "║  php artisan tinker --execute=\"App\Models\Setting::setValue(         ║"
+  echo "║    'lenderly_dialer_update_url', '$SHARE_LINK'                       ║"
+  echo "║  );\"                                                                 ║"
+  echo "║                                                                      ║"
+  echo "╚══════════════════════════════════════════════════════════════════════╝"
+  echo "  ✔  Commands copied to clipboard — paste into your SSH terminal."
+fi
+
+# ── Copy tinker commands to clipboard ─────────────────────────────────
+if [[ -n "$SHARE_LINK" ]]; then
+  pbcopy <<TINKER
+php artisan tinker --execute="App\Models\Setting::setValue('lenderly_dialer_min_version', '$NEW_VER');"
+php artisan tinker --execute="App\Models\Setting::setValue('lenderly_dialer_update_url', '$SHARE_LINK');"
+TINKER
+fi
+
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║  ✔  Build complete                                           ║"
