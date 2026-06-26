@@ -187,8 +187,8 @@ fi
 # ── Copy tinker commands to clipboard ─────────────────────────────────
 if [[ -n "$SHARE_LINK" ]]; then
   pbcopy <<TINKER
-php artisan tinker --execute="App\Models\Setting::setValue('lenderly_dialer_min_version', '$NEW_VER');"
-php artisan tinker --execute="App\Models\Setting::setValue('lenderly_dialer_update_url', '$SHARE_LINK');"
+cd site/wwwroot/ && php artisan tinker --execute="App\Models\Setting::setValue('lenderly_dialer_min_version', '$NEW_VER');"
+cd site/wwwroot/ && php artisan tinker --execute="App\Models\Setting::setValue('lenderly_dialer_update_url', '$SHARE_LINK');"
 TINKER
 fi
 
