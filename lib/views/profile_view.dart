@@ -199,20 +199,19 @@ class _ProfileViewState extends State<ProfileView> {
                 ],
               ),
             )
-          : SingleChildScrollView(
+          : ListView(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildProfileHeader(),
-                  const SizedBox(height: 24),
-                  _buildUserInfo(),
-                  const SizedBox(height: 24),
-                  _buildPasswordSection(),
-                  const SizedBox(height: 24),
-                  _buildSessionInfo(),
-                ],
-              ),
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              children: [
+                _buildProfileHeader(),
+                const SizedBox(height: 24),
+                _buildUserInfo(),
+                const SizedBox(height: 24),
+                _buildPasswordSection(),
+                const SizedBox(height: 24),
+                _buildSessionInfo(),
+              ],
             ),
     );
   }

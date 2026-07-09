@@ -122,10 +122,9 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
         16,
         MediaQuery.of(context).viewInsets.bottom + 16,
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+      child: ListView(
+          keyboardDismissBehavior:
+              ScrollViewKeyboardDismissBehavior.onDrag,
           children: [
             Row(
               children: [
@@ -154,7 +153,6 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
             if (_stage == _Stage.error) ..._buildError(),
           ],
         ),
-      ),
     );
   }
 

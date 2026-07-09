@@ -227,13 +227,6 @@ class _DashboardViewState extends State<DashboardView> {
             physics: const NeverScrollableScrollPhysics(),
             children: [
               _quickActionCard(
-                title: 'Visitation',
-                subtitle: 'DL, CI, house, reminder, tracing',
-                icon: Icons.route,
-                color: const Color(0xFF0F3D3E),
-                onTap: _openVisitationRequestPage,
-              ),
-              _quickActionCard(
                 title: 'Time In',
                 subtitle: 'Selfie + GPS required',
                 icon: Icons.login,
@@ -246,6 +239,13 @@ class _DashboardViewState extends State<DashboardView> {
                 icon: Icons.logout,
                 color: const Color(0xFFF59E0B),
                 onTap: _openTimeOutPage,
+              ),
+              _quickActionCard(
+                title: 'Visitation',
+                subtitle: 'DL, CI, house, reminder, tracing',
+                icon: Icons.route,
+                color: const Color(0xFF0F3D3E),
+                onTap: _openVisitationRequestPage,
               ),
               _quickActionCard(
                 title: 'Reimbursements',

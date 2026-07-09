@@ -7,6 +7,7 @@ class LoanCardActionsMenu extends StatelessWidget {
   final VoidCallback onFollowUp;
   final VoidCallback? onCallPhone;
   final VoidCallback? onCallMobile;
+  final VoidCallback? onSendMessage;
 
   const LoanCardActionsMenu({
     super.key,
@@ -16,6 +17,7 @@ class LoanCardActionsMenu extends StatelessWidget {
     required this.onFollowUp,
     this.onCallPhone,
     this.onCallMobile,
+    this.onSendMessage,
   });
 
   @override
@@ -37,6 +39,9 @@ class LoanCardActionsMenu extends StatelessWidget {
             break;
           case _LoanCardAction.callMobile:
             onCallMobile?.call();
+            break;
+          case _LoanCardAction.sendMessage:
+            onSendMessage?.call();
             break;
         }
       },
@@ -79,6 +84,16 @@ class LoanCardActionsMenu extends StatelessWidget {
           );
         }
 
+        items.addAll([
+          const PopupMenuDivider(),
+          _menuItem(
+            value: _LoanCardAction.sendMessage,
+            icon: Icons.message_outlined,
+            title: 'Send message',
+            color: Colors.indigo,
+          ),
+        ]);
+
         return items;
       },
       child: Container(
@@ -90,7 +105,7 @@ class LoanCardActionsMenu extends StatelessWidget {
           shape: BoxShape.circle,
           border: Border.all(color: themeColor.withValues(alpha: 0.2)),
         ),
-        child: Icon(Icons.more_vert, size: 20, color: themeColor),
+        child: Icon(Icons.add, size: 22, color: themeColor),
       ),
     );
   }
@@ -114,4 +129,4 @@ class LoanCardActionsMenu extends StatelessWidget {
   }
 }
 
-enum _LoanCardAction { viewDetails, followUp, callPhone, callMobile }
+enum _LoanCardAction { viewDetails, followUp, callPhone, callMobile, sendMessage }

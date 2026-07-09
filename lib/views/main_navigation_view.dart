@@ -4,6 +4,7 @@ import 'front_end_view.dart';
 import 'hardcore_view.dart';
 import 'search_loan_view.dart';
 import 'dashboard_view.dart';
+import 'local_messages_view.dart';
 import 'settings_view.dart';
 
 class MainNavigationView extends StatefulWidget {
@@ -28,6 +29,7 @@ class _MainNavigationViewState extends State<MainNavigationView> {
       const HardcoreView(),
       const DashboardView(),
       const SearchLoanView(),
+      const LocalMessagesView(),
       const SettingsView(),
     ];
   }
@@ -66,7 +68,14 @@ class _MainNavigationViewState extends State<MainNavigationView> {
         activeColorSecondary: Colors.indigoAccent,
         inactiveColorSecondary: Colors.grey,
       ),
-
+      PersistentBottomNavBarItem(
+        icon: const Icon(Icons.message_outlined),
+        title: "Messages",
+        activeColorPrimary: Colors.teal,
+        inactiveColorPrimary: Colors.grey,
+        activeColorSecondary: Colors.tealAccent,
+        inactiveColorSecondary: Colors.grey,
+      ),
       PersistentBottomNavBarItem(
         icon: const Icon(Icons.settings),
         title: "Settings",

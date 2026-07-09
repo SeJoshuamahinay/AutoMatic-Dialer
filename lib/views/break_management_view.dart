@@ -70,12 +70,12 @@ class _BreakManagementViewState extends State<BreakManagementView> {
 
           return RefreshIndicator(
             onRefresh: () async => _refreshData(context),
-            child: SingleChildScrollView(
+            child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              children: [
                   // Current break status card
                   _buildCurrentBreakCard(state),
 
@@ -91,8 +91,7 @@ class _BreakManagementViewState extends State<BreakManagementView> {
 
                   // Today's break history
                   _buildBreakHistory(state),
-                ],
-              ),
+              ],
             ),
           );
         },

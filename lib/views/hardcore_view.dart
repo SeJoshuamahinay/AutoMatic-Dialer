@@ -10,6 +10,7 @@ import 'package:lenderly_dialer/commons/services/accounts_bucket_service.dart';
 import 'package:lenderly_dialer/commons/services/call_log_service.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
 import 'package:lenderly_dialer/commons/widgets/bucket_loan_card.dart';
+import 'package:lenderly_dialer/views/chat_template_picker_view.dart';
 import 'package:lenderly_dialer/views/follow_up_form_view.dart';
 import 'package:lenderly_dialer/views/loan_detail_view.dart';
 
@@ -160,6 +161,30 @@ class _HardcoreViewBodyState extends State<_HardcoreViewBody> {
         );
       }
     }
+  }
+
+  void _openSendMessage(DialerLoanRecord r) {
+    final borrowerId = r.borrowerId;
+    if (borrowerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Borrower ID missing for this record.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatTemplatePickerView(
+          loanId: r.loanId,
+          borrowerId: borrowerId,
+          borrowerName: r.fullName,
+          borrowerPhone: r.primaryPhone,
+        ),
+      ),
+    );
   }
 
   Future<void> _logManualCall({required int loanId, int? borrowerId}) async {
@@ -412,6 +437,7 @@ class _HardcoreViewBodyState extends State<_HardcoreViewBody> {
                               borrowerId: r.borrowerId,
                             )
                           : null,
+                      onSendMessage: () => _openSendMessage(r),
                     );
                   },
                 ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:intl/intl.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
+import 'chat_template_picker_view.dart';
 import 'follow_up_form_view.dart';
 import 'update_borrower_contact_view.dart';
 
@@ -737,6 +738,21 @@ class _LoanDetailViewState extends State<LoanDetailView>
     );
   }
 
+  void _openSendMessage({String? phone}) {
+    if (_loan == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatTemplatePickerView(
+          loanId: _loan!.id,
+          borrowerId: _loan!.borrowerId,
+          borrowerName: _loan!.borrowerName,
+          borrowerPhone: phone ?? _loan!.borrowerMobile ?? _loan!.borrowerPhone,
+        ),
+      ),
+    );
+  }
+
   Widget _callRow(String label, String number, String name) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -764,6 +780,22 @@ class _LoanDetailViewState extends State<LoanDetailView>
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(Icons.phone, size: 16, color: Colors.indigo.shade600),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => _openSendMessage(phone: number),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.indigo.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.message_outlined,
+                size: 16,
+                color: Colors.indigo.shade600,
+              ),
             ),
           ),
         ],
@@ -950,6 +982,29 @@ class _LoanDetailViewState extends State<LoanDetailView>
                         foregroundColor: Colors.white,
                         icon: const Icon(Icons.note_add),
                         label: const Text('Add Follow-up'),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                AnimatedOpacity(
+                  opacity: _fabOpen ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 130),
+                  child: AnimatedSlide(
+                    offset: _fabOpen ? Offset.zero : const Offset(0, 0.3),
+                    duration: const Duration(milliseconds: 130),
+                    child: IgnorePointer(
+                      ignoring: !_fabOpen,
+                      child: FloatingActionButton.extended(
+                        heroTag: 'send_message_btn',
+                        onPressed: () {
+                          setState(() => _fabOpen = false);
+                          _openSendMessage();
+                        },
+                        backgroundColor: Colors.indigo.shade400,
+                        foregroundColor: Colors.white,
+                        icon: const Icon(Icons.message_outlined),
+                        label: const Text('Send Message'),
                       ),
                     ),
                   ),

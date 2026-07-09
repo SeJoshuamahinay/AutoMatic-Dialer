@@ -6,6 +6,7 @@ import 'package:lenderly_dialer/commons/services/accounts_bucket_service.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'package:lenderly_dialer/commons/services/call_log_service.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
+import 'chat_template_picker_view.dart';
 import 'follow_up_form_view.dart';
 import 'loan_detail_view.dart';
 
@@ -216,6 +217,31 @@ class _SearchLoanViewState extends State<SearchLoanView> {
     );
   }
 
+  void _openSendMessage(SearchResult result) {
+    final borrowerId = result.borrowerId;
+    if (borrowerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Borrower ID missing for this record.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    final phone = result.phone ?? result.mobile;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatTemplatePickerView(
+          loanId: result.loanId,
+          borrowerId: borrowerId,
+          borrowerName: result.fullName,
+          borrowerPhone: phone,
+        ),
+      ),
+    );
+  }
+
   void _openFollowUp(SearchResult result) {
     final borrowerId = result.borrowerId;
     if (borrowerId == null) {
@@ -334,6 +360,9 @@ class _SearchLoanViewState extends State<SearchLoanView> {
                           borrowerId: result.borrowerId,
                         );
                         break;
+                      case 'send_message':
+                        _openSendMessage(result);
+                        break;
                     }
                   },
                   itemBuilder: (context) {
@@ -389,6 +418,22 @@ class _SearchLoanViewState extends State<SearchLoanView> {
                         ),
                       );
                     }
+
+                    items.add(
+                      const PopupMenuDivider(),
+                    );
+                    items.add(
+                      const PopupMenuItem<String>(
+                        value: 'send_message',
+                        child: Row(
+                          children: [
+                            Icon(Icons.message_outlined, size: 18),
+                            SizedBox(width: 10),
+                            Text('Send message'),
+                          ],
+                        ),
+                      ),
+                    );
 
                     return items;
                   },

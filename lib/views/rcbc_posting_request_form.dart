@@ -816,13 +816,13 @@ class _RcbcPostingRequestFormState extends State<RcbcPostingRequestForm> {
           style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          keyboardDismissBehavior:
+              ScrollViewKeyboardDismissBehavior.onDrag,
+          children: [
               _buildSection('Payment Details'),
               const SizedBox(height: 12),
               _buildCard([
@@ -1029,8 +1029,7 @@ class _RcbcPostingRequestFormState extends State<RcbcPostingRequestForm> {
                 ),
               ),
               const SizedBox(height: 32),
-            ],
-          ),
+          ],
         ),
       ),
     );

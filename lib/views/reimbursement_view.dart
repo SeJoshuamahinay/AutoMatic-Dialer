@@ -1057,11 +1057,10 @@ class _QuickCreateModalState extends State<_QuickCreateModal> {
         16,
         MediaQuery.of(context).viewInsets.bottom + 16,
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      child: ListView(
+        keyboardDismissBehavior:
+            ScrollViewKeyboardDismissBehavior.onDrag,
+        children: [
             const Text(
               'Quick Reimbursement',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
@@ -1151,7 +1150,6 @@ class _QuickCreateModalState extends State<_QuickCreateModal> {
             ),
           ],
         ),
-      ),
     );
   }
 }

@@ -184,15 +184,11 @@ class _DialerViewState extends State<DialerView> {
       });
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: IntrinsicHeight(
-              child: Column(
-                children: [
+    return ListView(
+      padding: const EdgeInsets.all(20.0),
+      keyboardDismissBehavior:
+          ScrollViewKeyboardDismissBehavior.onDrag,
+      children: [
                   // Progress Indicator
                   _buildProgressIndicator(callEndedState),
                   const SizedBox(height: 32),
@@ -363,16 +359,11 @@ class _DialerViewState extends State<DialerView> {
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-        );
-      },
+          ],
     );
   }
 
