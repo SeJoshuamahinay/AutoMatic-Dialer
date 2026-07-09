@@ -14,7 +14,6 @@ import 'package:lenderly_dialer/blocs/dashboard/dashboard_state.dart';
 import 'package:lenderly_dialer/commons/models/auth_models.dart';
 import 'package:lenderly_dialer/commons/models/break_session_model.dart';
 import 'package:lenderly_dialer/commons/models/call_log_model.dart';
-import 'package:lenderly_dialer/commons/reusables/app_lifecycle_guard.dart';
 import 'package:lenderly_dialer/commons/reusables/toast.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'package:lenderly_dialer/commons/services/app_config.dart';
@@ -36,16 +35,10 @@ class DashboardView extends StatefulWidget {
 class _DashboardViewState extends State<DashboardView> {
   final NumberFormat _amountFmt = NumberFormat('#,##0.00', 'en_PH');
   final ImagePicker _imagePicker = ImagePicker();
-  late DateTime _now;
-  Timer? _clockTimer;
 
   @override
   void initState() {
     super.initState();
-    _now = DateTime.now();
-    _startClock();
-
-    AppLifecycleGuard.instance.register(_pauseClock, _resumeClock);
 
     final bloc = context.read<DashboardBloc>();
     bloc
@@ -54,34 +47,11 @@ class _DashboardViewState extends State<DashboardView> {
       ..add(LoadDashboardData(selectedDate: DateTime.now()));
   }
 
-  @override
-  void dispose() {
-    AppLifecycleGuard.instance.unregister(_pauseClock, _resumeClock);
-    _clockTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startClock() {
-    _clockTimer?.cancel();
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {
-          _now = DateTime.now();
-        });
-      }
-    });
-  }
-
-  void _pauseClock() {
-    _clockTimer?.cancel();
-    _clockTimer = null;
-  }
-
-  void _resumeClock() {
-    if (mounted) {
-      _now = DateTime.now();
-      _startClock();
-    }
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
   }
 
   Future<void> _onStateChanged(
@@ -1066,23 +1036,14 @@ class _DashboardViewState extends State<DashboardView> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                DateFormat('hh:mm:ss a').format(_now),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 34,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(
-                DateFormat('EEEE, MMMM d').format(_now),
-                style: const TextStyle(color: Colors.white70),
-              ),
-            ],
+          const SizedBox(height: 6),
+          Text(
+            '${_greeting()}, ${user?.fullName.split(' ').first ?? 'there'}!',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 10),
           Container(
