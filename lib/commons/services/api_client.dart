@@ -134,9 +134,12 @@ class ApiClient {
                       GestureDetector(
                         onTap: () async {
                           final uri = Uri.tryParse(updateUrl);
-                          if (uri != null && await canLaunchUrl(uri)) {
+                          if (uri == null) return;
+                          try {
                             await launchUrl(uri,
                                 mode: LaunchMode.externalApplication);
+                          } catch (_) {
+                            // No app available to handle the URL — ignore.
                           }
                         },
                         child: Text(
