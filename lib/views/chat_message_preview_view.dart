@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:lenderly_dialer/commons/models/chat_models.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'package:lenderly_dialer/commons/services/chat_service.dart';
@@ -27,16 +28,44 @@ class ChatMessagePreviewView extends StatefulWidget {
 
 class _ChatMessagePreviewViewState extends State<ChatMessagePreviewView> {
   final ChatService _chatService = ChatService();
+  final TextEditingController _bodyCtrl = TextEditingController();
   bool _isLoading = true;
   bool _isSending = false;
   String? _filledBody;
   String? _filledSubject;
   String? _error;
 
+  static const String _fillableDatePlaceholder = '{fillable_date}';
+
   @override
   void initState() {
     super.initState();
+    _bodyCtrl.addListener(() => setState(() {}));
     _generateMessage();
+  }
+
+  @override
+  void dispose() {
+    _bodyCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _hasFillableDate =>
+      _bodyCtrl.text.contains(_fillableDatePlaceholder);
+
+  Future<void> _pickFillableDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked == null) return;
+    final formatted = DateFormat('MMMM d, yyyy').format(picked);
+    _bodyCtrl.text = _bodyCtrl.text.replaceAll(
+      _fillableDatePlaceholder,
+      formatted,
+    );
   }
 
   Future<void> _generateMessage() async {
@@ -56,6 +85,7 @@ class _ChatMessagePreviewViewState extends State<ChatMessagePreviewView> {
         setState(() {
           _filledBody = data?['body']?.toString();
           _filledSubject = data?['subject']?.toString();
+          _bodyCtrl.text = _filledBody ?? widget.template.body;
           _isLoading = false;
         });
       } else {
@@ -76,7 +106,12 @@ class _ChatMessagePreviewViewState extends State<ChatMessagePreviewView> {
   }
 
   Future<void> _sendMessage() async {
-    if (_filledBody == null || _isSending) return;
+    final message = _bodyCtrl.text.trim();
+    if (message.isEmpty || _isSending) return;
+    if (_hasFillableDate) {
+      _showError('Please fill in the date before sending.');
+      return;
+    }
 
     setState(() => _isSending = true);
 
@@ -92,7 +127,7 @@ class _ChatMessagePreviewViewState extends State<ChatMessagePreviewView> {
         userId: session.userId,
         borrowerId: widget.borrowerId,
         loanId: widget.loanId,
-        message: _filledBody!,
+        message: message,
         sentAt: DateTime.now().toIso8601String(),
       );
 
@@ -100,8 +135,8 @@ class _ChatMessagePreviewViewState extends State<ChatMessagePreviewView> {
       if (phone != null && phone.isNotEmpty) {
         await Telephony.instance.sendSms(
           to: phone,
-          message: _filledBody!,
-          isMultipart: _filledBody!.length > 160,
+          message: message,
+          isMultipart: message.length > 160,
         );
       }
 
@@ -228,9 +263,40 @@ class _ChatMessagePreviewViewState extends State<ChatMessagePreviewView> {
                   ),
                   const SizedBox(height: 12),
                 ],
+                if (_hasFillableDate) ...[
+                  InkWell(
+                    onTap: _pickFillableDate,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amber.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.event, color: Colors.amber.shade800),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Tap to fill in the date',
+                              style: TextStyle(
+                                color: Colors.amber.shade900,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -242,11 +308,13 @@ class _ChatMessagePreviewViewState extends State<ChatMessagePreviewView> {
                       ),
                     ],
                   ),
-                  child: Text(
-                    _filledBody ?? widget.template.body,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.5,
+                  child: TextField(
+                    controller: _bodyCtrl,
+                    maxLines: null,
+                    style: const TextStyle(fontSize: 14, height: 1.5),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ),
