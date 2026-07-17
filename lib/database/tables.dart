@@ -215,6 +215,23 @@ class DailyStats extends Table {
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+// Pending Locations Table - GPS fixes that failed to upload, retried on reconnect
+@DataClassName('PendingLocationEntry')
+class PendingLocations extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  TextColumn get deviceId => text().withLength(min: 1, max: 100)();
+  RealColumn get latitude => real()();
+  RealColumn get longitude => real()();
+  RealColumn get accuracy => real().nullable()();
+  RealColumn get speed => real().nullable()();
+  RealColumn get heading => real().nullable()();
+  RealColumn get altitude => real().nullable()();
+  DateTimeColumn get recordedAt => dateTime()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
 // Call Attempts Table - Track multiple attempts to the same contact
 @DataClassName('CallAttemptEntry')
 class CallAttempts extends Table {

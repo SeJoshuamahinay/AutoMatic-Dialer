@@ -10,6 +10,7 @@ class SharedPrefsStorageService {
   static const String _rememberMeKey = 'remember_me';
   static const String _lastUsernameKey = 'last_username';
   static const String _userProfileKey = 'user_profile';
+  static const String _trackingEnabledKey = 'tracking_enabled';
 
   static SharedPreferences? _prefs;
 
@@ -210,6 +211,26 @@ class SharedPrefsStorageService {
       await prefs.remove(_userProfileKey);
     } catch (e) {
       if (EnvironmentConfig.enableLogging) {}
+    }
+  }
+
+  /// Save whether location tracking is enabled
+  static Future<void> saveTrackingEnabled(bool enabled) async {
+    try {
+      final prefs = await _instance;
+      await prefs.setBool(_trackingEnabledKey, enabled);
+    } catch (e) {
+      if (EnvironmentConfig.enableLogging) {}
+    }
+  }
+
+  /// Check if location tracking was left enabled
+  static Future<bool> isTrackingEnabled() async {
+    try {
+      final prefs = await _instance;
+      return prefs.getBool(_trackingEnabledKey) ?? false;
+    } catch (e) {
+      return false;
     }
   }
 

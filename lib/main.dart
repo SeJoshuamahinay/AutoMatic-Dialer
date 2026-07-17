@@ -1,8 +1,13 @@
 import 'package:lenderly_dialer/views/main_navigation_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:ui';
 import 'blocs/bloc_providers.dart';
+import 'blocs/auth/auth_bloc.dart';
+import 'blocs/auth/auth_state.dart';
+import 'blocs/tracking/tracking_bloc.dart';
+import 'blocs/tracking/tracking_event.dart';
 import 'commons/reusables/app_lifecycle_guard.dart';
 import 'commons/services/environment_config.dart';
 import 'commons/services/shared_prefs_storage_service.dart';
@@ -120,14 +125,31 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         navigatorKey: ApiClient.navigatorKey,
         builder: (context, child) {
-          // Enhanced error boundary for gesture-related errors
-          return _AppLifecycleGuardWrapper(
-            child: _GestureErrorWrapper(
-              child:
-                  child ??
-                  const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
-                  ),
+          // Always-on tracking: connect the socket + foreground listener
+          // whenever the user is logged in, so the admin (and the working-hours
+          // scheduler) can start/locate this device without the user toggling
+          // anything. Disconnect on logout. Lives here so it stays mounted
+          // across route changes (AuthWrapper unmounts after login navigates).
+          return BlocListener<AuthBloc, AuthState>(
+            listenWhen: (prev, curr) =>
+                curr is AuthAuthenticated || curr is AuthUnauthenticated,
+            listener: (context, state) {
+              final tracking = context.read<TrackingBloc>();
+              if (state is AuthAuthenticated) {
+                tracking.add(const StartTrackingRequested());
+              } else if (state is AuthUnauthenticated) {
+                tracking.add(const StopTrackingRequested());
+              }
+            },
+            // Enhanced error boundary for gesture-related errors
+            child: _AppLifecycleGuardWrapper(
+              child: _GestureErrorWrapper(
+                child:
+                    child ??
+                    const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    ),
+              ),
             ),
           );
         },

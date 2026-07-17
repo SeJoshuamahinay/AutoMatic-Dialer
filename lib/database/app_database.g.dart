@@ -6164,6 +6164,611 @@ class CallAttemptsCompanion extends UpdateCompanion<CallAttemptEntry> {
   }
 }
 
+class $PendingLocationsTable extends PendingLocations
+    with TableInfo<$PendingLocationsTable, PendingLocationEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PendingLocationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 100,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _latitudeMeta = const VerificationMeta(
+    'latitude',
+  );
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+    'latitude',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _longitudeMeta = const VerificationMeta(
+    'longitude',
+  );
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+    'longitude',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _accuracyMeta = const VerificationMeta(
+    'accuracy',
+  );
+  @override
+  late final GeneratedColumn<double> accuracy = GeneratedColumn<double>(
+    'accuracy',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _speedMeta = const VerificationMeta('speed');
+  @override
+  late final GeneratedColumn<double> speed = GeneratedColumn<double>(
+    'speed',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _headingMeta = const VerificationMeta(
+    'heading',
+  );
+  @override
+  late final GeneratedColumn<double> heading = GeneratedColumn<double>(
+    'heading',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _altitudeMeta = const VerificationMeta(
+    'altitude',
+  );
+  @override
+  late final GeneratedColumn<double> altitude = GeneratedColumn<double>(
+    'altitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _recordedAtMeta = const VerificationMeta(
+    'recordedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> recordedAt = GeneratedColumn<DateTime>(
+    'recorded_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    deviceId,
+    latitude,
+    longitude,
+    accuracy,
+    speed,
+    heading,
+    altitude,
+    recordedAt,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pending_locations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PendingLocationEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_deviceIdMeta);
+    }
+    if (data.containsKey('latitude')) {
+      context.handle(
+        _latitudeMeta,
+        latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_latitudeMeta);
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(
+        _longitudeMeta,
+        longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_longitudeMeta);
+    }
+    if (data.containsKey('accuracy')) {
+      context.handle(
+        _accuracyMeta,
+        accuracy.isAcceptableOrUnknown(data['accuracy']!, _accuracyMeta),
+      );
+    }
+    if (data.containsKey('speed')) {
+      context.handle(
+        _speedMeta,
+        speed.isAcceptableOrUnknown(data['speed']!, _speedMeta),
+      );
+    }
+    if (data.containsKey('heading')) {
+      context.handle(
+        _headingMeta,
+        heading.isAcceptableOrUnknown(data['heading']!, _headingMeta),
+      );
+    }
+    if (data.containsKey('altitude')) {
+      context.handle(
+        _altitudeMeta,
+        altitude.isAcceptableOrUnknown(data['altitude']!, _altitudeMeta),
+      );
+    }
+    if (data.containsKey('recorded_at')) {
+      context.handle(
+        _recordedAtMeta,
+        recordedAt.isAcceptableOrUnknown(data['recorded_at']!, _recordedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_recordedAtMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PendingLocationEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PendingLocationEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
+      latitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}latitude'],
+      )!,
+      longitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}longitude'],
+      )!,
+      accuracy: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}accuracy'],
+      ),
+      speed: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}speed'],
+      ),
+      heading: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}heading'],
+      ),
+      altitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}altitude'],
+      ),
+      recordedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}recorded_at'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PendingLocationsTable createAlias(String alias) {
+    return $PendingLocationsTable(attachedDatabase, alias);
+  }
+}
+
+class PendingLocationEntry extends DataClass
+    implements Insertable<PendingLocationEntry> {
+  final int id;
+  final String deviceId;
+  final double latitude;
+  final double longitude;
+  final double? accuracy;
+  final double? speed;
+  final double? heading;
+  final double? altitude;
+  final DateTime recordedAt;
+  final DateTime createdAt;
+  const PendingLocationEntry({
+    required this.id,
+    required this.deviceId,
+    required this.latitude,
+    required this.longitude,
+    this.accuracy,
+    this.speed,
+    this.heading,
+    this.altitude,
+    required this.recordedAt,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['device_id'] = Variable<String>(deviceId);
+    map['latitude'] = Variable<double>(latitude);
+    map['longitude'] = Variable<double>(longitude);
+    if (!nullToAbsent || accuracy != null) {
+      map['accuracy'] = Variable<double>(accuracy);
+    }
+    if (!nullToAbsent || speed != null) {
+      map['speed'] = Variable<double>(speed);
+    }
+    if (!nullToAbsent || heading != null) {
+      map['heading'] = Variable<double>(heading);
+    }
+    if (!nullToAbsent || altitude != null) {
+      map['altitude'] = Variable<double>(altitude);
+    }
+    map['recorded_at'] = Variable<DateTime>(recordedAt);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PendingLocationsCompanion toCompanion(bool nullToAbsent) {
+    return PendingLocationsCompanion(
+      id: Value(id),
+      deviceId: Value(deviceId),
+      latitude: Value(latitude),
+      longitude: Value(longitude),
+      accuracy: accuracy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accuracy),
+      speed: speed == null && nullToAbsent
+          ? const Value.absent()
+          : Value(speed),
+      heading: heading == null && nullToAbsent
+          ? const Value.absent()
+          : Value(heading),
+      altitude: altitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(altitude),
+      recordedAt: Value(recordedAt),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PendingLocationEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PendingLocationEntry(
+      id: serializer.fromJson<int>(json['id']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      latitude: serializer.fromJson<double>(json['latitude']),
+      longitude: serializer.fromJson<double>(json['longitude']),
+      accuracy: serializer.fromJson<double?>(json['accuracy']),
+      speed: serializer.fromJson<double?>(json['speed']),
+      heading: serializer.fromJson<double?>(json['heading']),
+      altitude: serializer.fromJson<double?>(json['altitude']),
+      recordedAt: serializer.fromJson<DateTime>(json['recordedAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'latitude': serializer.toJson<double>(latitude),
+      'longitude': serializer.toJson<double>(longitude),
+      'accuracy': serializer.toJson<double?>(accuracy),
+      'speed': serializer.toJson<double?>(speed),
+      'heading': serializer.toJson<double?>(heading),
+      'altitude': serializer.toJson<double?>(altitude),
+      'recordedAt': serializer.toJson<DateTime>(recordedAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PendingLocationEntry copyWith({
+    int? id,
+    String? deviceId,
+    double? latitude,
+    double? longitude,
+    Value<double?> accuracy = const Value.absent(),
+    Value<double?> speed = const Value.absent(),
+    Value<double?> heading = const Value.absent(),
+    Value<double?> altitude = const Value.absent(),
+    DateTime? recordedAt,
+    DateTime? createdAt,
+  }) => PendingLocationEntry(
+    id: id ?? this.id,
+    deviceId: deviceId ?? this.deviceId,
+    latitude: latitude ?? this.latitude,
+    longitude: longitude ?? this.longitude,
+    accuracy: accuracy.present ? accuracy.value : this.accuracy,
+    speed: speed.present ? speed.value : this.speed,
+    heading: heading.present ? heading.value : this.heading,
+    altitude: altitude.present ? altitude.value : this.altitude,
+    recordedAt: recordedAt ?? this.recordedAt,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PendingLocationEntry copyWithCompanion(PendingLocationsCompanion data) {
+    return PendingLocationEntry(
+      id: data.id.present ? data.id.value : this.id,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
+      accuracy: data.accuracy.present ? data.accuracy.value : this.accuracy,
+      speed: data.speed.present ? data.speed.value : this.speed,
+      heading: data.heading.present ? data.heading.value : this.heading,
+      altitude: data.altitude.present ? data.altitude.value : this.altitude,
+      recordedAt: data.recordedAt.present
+          ? data.recordedAt.value
+          : this.recordedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingLocationEntry(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('accuracy: $accuracy, ')
+          ..write('speed: $speed, ')
+          ..write('heading: $heading, ')
+          ..write('altitude: $altitude, ')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    deviceId,
+    latitude,
+    longitude,
+    accuracy,
+    speed,
+    heading,
+    altitude,
+    recordedAt,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PendingLocationEntry &&
+          other.id == this.id &&
+          other.deviceId == this.deviceId &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
+          other.accuracy == this.accuracy &&
+          other.speed == this.speed &&
+          other.heading == this.heading &&
+          other.altitude == this.altitude &&
+          other.recordedAt == this.recordedAt &&
+          other.createdAt == this.createdAt);
+}
+
+class PendingLocationsCompanion extends UpdateCompanion<PendingLocationEntry> {
+  final Value<int> id;
+  final Value<String> deviceId;
+  final Value<double> latitude;
+  final Value<double> longitude;
+  final Value<double?> accuracy;
+  final Value<double?> speed;
+  final Value<double?> heading;
+  final Value<double?> altitude;
+  final Value<DateTime> recordedAt;
+  final Value<DateTime> createdAt;
+  const PendingLocationsCompanion({
+    this.id = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.accuracy = const Value.absent(),
+    this.speed = const Value.absent(),
+    this.heading = const Value.absent(),
+    this.altitude = const Value.absent(),
+    this.recordedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  PendingLocationsCompanion.insert({
+    this.id = const Value.absent(),
+    required String deviceId,
+    required double latitude,
+    required double longitude,
+    this.accuracy = const Value.absent(),
+    this.speed = const Value.absent(),
+    this.heading = const Value.absent(),
+    this.altitude = const Value.absent(),
+    required DateTime recordedAt,
+    this.createdAt = const Value.absent(),
+  }) : deviceId = Value(deviceId),
+       latitude = Value(latitude),
+       longitude = Value(longitude),
+       recordedAt = Value(recordedAt);
+  static Insertable<PendingLocationEntry> custom({
+    Expression<int>? id,
+    Expression<String>? deviceId,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
+    Expression<double>? accuracy,
+    Expression<double>? speed,
+    Expression<double>? heading,
+    Expression<double>? altitude,
+    Expression<DateTime>? recordedAt,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (deviceId != null) 'device_id': deviceId,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (accuracy != null) 'accuracy': accuracy,
+      if (speed != null) 'speed': speed,
+      if (heading != null) 'heading': heading,
+      if (altitude != null) 'altitude': altitude,
+      if (recordedAt != null) 'recorded_at': recordedAt,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  PendingLocationsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? deviceId,
+    Value<double>? latitude,
+    Value<double>? longitude,
+    Value<double?>? accuracy,
+    Value<double?>? speed,
+    Value<double?>? heading,
+    Value<double?>? altitude,
+    Value<DateTime>? recordedAt,
+    Value<DateTime>? createdAt,
+  }) {
+    return PendingLocationsCompanion(
+      id: id ?? this.id,
+      deviceId: deviceId ?? this.deviceId,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      accuracy: accuracy ?? this.accuracy,
+      speed: speed ?? this.speed,
+      heading: heading ?? this.heading,
+      altitude: altitude ?? this.altitude,
+      recordedAt: recordedAt ?? this.recordedAt,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
+    if (accuracy.present) {
+      map['accuracy'] = Variable<double>(accuracy.value);
+    }
+    if (speed.present) {
+      map['speed'] = Variable<double>(speed.value);
+    }
+    if (heading.present) {
+      map['heading'] = Variable<double>(heading.value);
+    }
+    if (altitude.present) {
+      map['altitude'] = Variable<double>(altitude.value);
+    }
+    if (recordedAt.present) {
+      map['recorded_at'] = Variable<DateTime>(recordedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PendingLocationsCompanion(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('accuracy: $accuracy, ')
+          ..write('speed: $speed, ')
+          ..write('heading: $heading, ')
+          ..write('altitude: $altitude, ')
+          ..write('recordedAt: $recordedAt, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6173,6 +6778,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $BreakSessionsTable breakSessions = $BreakSessionsTable(this);
   late final $DailyStatsTable dailyStats = $DailyStatsTable(this);
   late final $CallAttemptsTable callAttempts = $CallAttemptsTable(this);
+  late final $PendingLocationsTable pendingLocations = $PendingLocationsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6184,6 +6792,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     breakSessions,
     dailyStats,
     callAttempts,
+    pendingLocations,
   ];
 }
 
@@ -8898,6 +9507,307 @@ typedef $$CallAttemptsTableProcessedTableManager =
       CallAttemptEntry,
       PrefetchHooks Function()
     >;
+typedef $$PendingLocationsTableCreateCompanionBuilder =
+    PendingLocationsCompanion Function({
+      Value<int> id,
+      required String deviceId,
+      required double latitude,
+      required double longitude,
+      Value<double?> accuracy,
+      Value<double?> speed,
+      Value<double?> heading,
+      Value<double?> altitude,
+      required DateTime recordedAt,
+      Value<DateTime> createdAt,
+    });
+typedef $$PendingLocationsTableUpdateCompanionBuilder =
+    PendingLocationsCompanion Function({
+      Value<int> id,
+      Value<String> deviceId,
+      Value<double> latitude,
+      Value<double> longitude,
+      Value<double?> accuracy,
+      Value<double?> speed,
+      Value<double?> heading,
+      Value<double?> altitude,
+      Value<DateTime> recordedAt,
+      Value<DateTime> createdAt,
+    });
+
+class $$PendingLocationsTableFilterComposer
+    extends Composer<_$AppDatabase, $PendingLocationsTable> {
+  $$PendingLocationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get accuracy => $composableBuilder(
+    column: $table.accuracy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get speed => $composableBuilder(
+    column: $table.speed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get heading => $composableBuilder(
+    column: $table.heading,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get altitude => $composableBuilder(
+    column: $table.altitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PendingLocationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PendingLocationsTable> {
+  $$PendingLocationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get accuracy => $composableBuilder(
+    column: $table.accuracy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get speed => $composableBuilder(
+    column: $table.speed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get heading => $composableBuilder(
+    column: $table.heading,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get altitude => $composableBuilder(
+    column: $table.altitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PendingLocationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PendingLocationsTable> {
+  $$PendingLocationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
+
+  GeneratedColumn<double> get accuracy =>
+      $composableBuilder(column: $table.accuracy, builder: (column) => column);
+
+  GeneratedColumn<double> get speed =>
+      $composableBuilder(column: $table.speed, builder: (column) => column);
+
+  GeneratedColumn<double> get heading =>
+      $composableBuilder(column: $table.heading, builder: (column) => column);
+
+  GeneratedColumn<double> get altitude =>
+      $composableBuilder(column: $table.altitude, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get recordedAt => $composableBuilder(
+    column: $table.recordedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PendingLocationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PendingLocationsTable,
+          PendingLocationEntry,
+          $$PendingLocationsTableFilterComposer,
+          $$PendingLocationsTableOrderingComposer,
+          $$PendingLocationsTableAnnotationComposer,
+          $$PendingLocationsTableCreateCompanionBuilder,
+          $$PendingLocationsTableUpdateCompanionBuilder,
+          (
+            PendingLocationEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $PendingLocationsTable,
+              PendingLocationEntry
+            >,
+          ),
+          PendingLocationEntry,
+          PrefetchHooks Function()
+        > {
+  $$PendingLocationsTableTableManager(
+    _$AppDatabase db,
+    $PendingLocationsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PendingLocationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PendingLocationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PendingLocationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
+                Value<double> latitude = const Value.absent(),
+                Value<double> longitude = const Value.absent(),
+                Value<double?> accuracy = const Value.absent(),
+                Value<double?> speed = const Value.absent(),
+                Value<double?> heading = const Value.absent(),
+                Value<double?> altitude = const Value.absent(),
+                Value<DateTime> recordedAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => PendingLocationsCompanion(
+                id: id,
+                deviceId: deviceId,
+                latitude: latitude,
+                longitude: longitude,
+                accuracy: accuracy,
+                speed: speed,
+                heading: heading,
+                altitude: altitude,
+                recordedAt: recordedAt,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String deviceId,
+                required double latitude,
+                required double longitude,
+                Value<double?> accuracy = const Value.absent(),
+                Value<double?> speed = const Value.absent(),
+                Value<double?> heading = const Value.absent(),
+                Value<double?> altitude = const Value.absent(),
+                required DateTime recordedAt,
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => PendingLocationsCompanion.insert(
+                id: id,
+                deviceId: deviceId,
+                latitude: latitude,
+                longitude: longitude,
+                accuracy: accuracy,
+                speed: speed,
+                heading: heading,
+                altitude: altitude,
+                recordedAt: recordedAt,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PendingLocationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PendingLocationsTable,
+      PendingLocationEntry,
+      $$PendingLocationsTableFilterComposer,
+      $$PendingLocationsTableOrderingComposer,
+      $$PendingLocationsTableAnnotationComposer,
+      $$PendingLocationsTableCreateCompanionBuilder,
+      $$PendingLocationsTableUpdateCompanionBuilder,
+      (
+        PendingLocationEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $PendingLocationsTable,
+          PendingLocationEntry
+        >,
+      ),
+      PendingLocationEntry,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8914,4 +9824,6 @@ class $AppDatabaseManager {
       $$DailyStatsTableTableManager(_db, _db.dailyStats);
   $$CallAttemptsTableTableManager get callAttempts =>
       $$CallAttemptsTableTableManager(_db, _db.callAttempts);
+  $$PendingLocationsTableTableManager get pendingLocations =>
+      $$PendingLocationsTableTableManager(_db, _db.pendingLocations);
 }

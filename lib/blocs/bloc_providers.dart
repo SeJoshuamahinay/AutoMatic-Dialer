@@ -4,6 +4,7 @@ import '../blocs/dialer/dialer_bloc.dart';
 import '../blocs/auth/auth_bloc.dart';
 import '../blocs/break/break_bloc.dart';
 import '../blocs/dashboard/dashboard_bloc.dart';
+import '../blocs/tracking/tracking_bloc.dart';
 import '../commons/repositories/test_repository.dart';
 import '../commons/services/login_service.dart';
 import '../commons/services/break_service.dart';
@@ -56,6 +57,9 @@ class BlocProviders {
         BlocProvider<DashboardBloc>(
           create: (context) => DashboardBloc(breakService),
         ),
+
+        // Tracking Bloc - Manages device location tracking
+        BlocProvider<TrackingBloc>(create: (context) => TrackingBloc()),
       ],
       child: child,
     );
@@ -91,6 +95,7 @@ class BlocProviders {
       BlocProvider<DashboardBloc>(
         create: (context) => DashboardBloc(breakService),
       ),
+      BlocProvider<TrackingBloc>(create: (context) => TrackingBloc()),
     ];
   }
 

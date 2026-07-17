@@ -19,13 +19,14 @@ part 'app_database.g.dart';
     BreakSessions,
     DailyStats,
     CallAttempts,
+    PendingLocations,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -46,9 +47,29 @@ class AppDatabase extends _$AppDatabase {
             'UPDATE break_sessions SET break_date = DATE(break_start) WHERE break_date IS NULL',
           );
         }
+        if (from < 3) {
+          await m.createTable(pendingLocations);
+        }
       },
     );
   }
+
+  // ===== PENDING LOCATIONS QUERIES =====
+
+  /// Queue a location fix that failed to upload.
+  Future<int> insertPendingLocation(PendingLocationsCompanion location) =>
+      into(pendingLocations).insert(location);
+
+  /// All queued locations, oldest first.
+  Future<List<PendingLocationEntry>> getPendingLocations() {
+    return (select(pendingLocations)
+          ..orderBy([(l) => OrderingTerm.asc(l.recordedAt)]))
+        .get();
+  }
+
+  /// Remove a queued location once it has been uploaded successfully.
+  Future<void> deletePendingLocation(int id) =>
+      (delete(pendingLocations)..where((l) => l.id.equals(id))).go();
 
   // ===== CALL LOGS QUERIES =====
 

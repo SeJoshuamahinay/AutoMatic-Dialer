@@ -68,6 +68,13 @@ class EnvironmentConfig {
   static bool get useSanctumAuth =>
       dotenv.env['USE_SANCTUM_AUTH']?.toLowerCase() == 'true';
 
+  // Reverb (WebSocket) Configuration - Location Tracking
+  static String get reverbHost => dotenv.env['REVERB_HOST'] ?? '';
+  static int get reverbPort =>
+      int.tryParse(dotenv.env['REVERB_PORT'] ?? '443') ?? 443;
+  static String get reverbScheme => dotenv.env['REVERB_SCHEME'] ?? 'https';
+  static String get reverbAppKey => dotenv.env['REVERB_APP_KEY'] ?? '';
+
   // Feature Flags
   static bool get enableLogging =>
       dotenv.env['ENABLE_LOGGING']?.toLowerCase() == 'true';

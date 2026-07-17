@@ -36,7 +36,7 @@ void toast(BuildContext context, String message, ShowToast type) {
       ],
     ),
     backgroundColor: bgColor,
-    behavior: SnackBarBehavior.floating,
+    behavior: SnackBarBehavior.fixed,
     duration: Duration(seconds: 3),
   );
 

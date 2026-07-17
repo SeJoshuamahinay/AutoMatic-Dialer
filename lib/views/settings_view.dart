@@ -5,6 +5,8 @@ import 'package:lenderly_dialer/commons/reusables/toast.dart';
 import '../blocs/break/break_bloc.dart';
 import '../blocs/break/break_event.dart';
 import '../blocs/break/break_state.dart';
+import '../blocs/tracking/tracking_bloc.dart';
+import '../blocs/tracking/tracking_state.dart';
 import '../commons/models/break_session_model.dart';
 import '../commons/reusables/logout_dialog.dart';
 import '../commons/models/auth_models.dart';
@@ -417,6 +419,57 @@ class _SettingsViewState extends State<SettingsView> {
             ),
             const SizedBox(height: 12),
 
+            // Realtime / WebSocket (Reverb) endpoint
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.teal.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.teal.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.wifi_tethering, size: 14, color: Colors.teal),
+                      SizedBox(width: 6),
+                      Text(
+                        'Realtime (WebSocket)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    EnvironmentConfig.reverbHost.isEmpty
+                        ? 'No Reverb host loaded'
+                        : '${EnvironmentConfig.reverbScheme == 'https' ? 'wss' : 'ws'}://'
+                            '${EnvironmentConfig.reverbHost}:${EnvironmentConfig.reverbPort}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'key: ${EnvironmentConfig.reverbAppKey.isEmpty ? '—' : EnvironmentConfig.reverbAppKey}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
             // Version
             Container(
               padding: const EdgeInsets.all(12),
@@ -456,6 +509,75 @@ class _SettingsViewState extends State<SettingsView> {
             ),
             const SizedBox(height: 16),
 
+            // Tracking is admin-controlled and always-on while logged in — the
+            // card is a read-only status display, not a user toggle.
+            BlocConsumer<TrackingBloc, TrackingState>(
+              listener: (context, state) {
+                if (state is TrackingError) {
+                  toast(context, state.message, ShowToast.error);
+                }
+              },
+              builder: (context, state) {
+                final isActive = state is TrackingActive;
+                final isBusy = state is TrackingStarting;
+                final isError = state is TrackingError;
+                final interval = state is TrackingActive ? state.intervalSeconds : null;
+
+                String subtitle;
+                Color? iconColor;
+                Widget trailing;
+
+                if (isBusy) {
+                  subtitle = 'Connecting…';
+                  iconColor = Colors.orange;
+                  trailing = const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  );
+                } else if (isActive) {
+                  final wsConnected = state.socketConnected;
+                  final base = interval != null
+                      ? 'Reporting every ${_formatInterval(interval)}'
+                      : 'Awaiting admin command';
+                  subtitle = wsConnected
+                      ? '$base • server connected'
+                      : '$base • reconnecting to server…';
+                  iconColor = wsConnected ? Colors.green : Colors.orange;
+                  trailing = Chip(
+                    avatar: Icon(
+                      wsConnected ? Icons.cloud_done : Icons.cloud_off,
+                      size: 16,
+                      color: wsConnected ? Colors.green : Colors.orange,
+                    ),
+                    label: Text(wsConnected ? 'Live' : 'Offline'),
+                    backgroundColor:
+                        wsConnected ? const Color(0xFFE6F4EA) : const Color(0xFFFDF0E3),
+                    labelStyle: TextStyle(
+                      color: wsConnected ? Colors.green : Colors.orange,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  );
+                } else if (isError) {
+                  subtitle = state.message;
+                  iconColor = Colors.red;
+                  trailing = const Icon(Icons.error_outline, color: Colors.red);
+                } else {
+                  subtitle = 'Not connected';
+                  iconColor = Colors.grey;
+                  trailing = const Icon(Icons.location_off, color: Colors.grey);
+                }
+
+                return ListTile(
+                  leading: Icon(Icons.location_on, color: iconColor),
+                  title: const Text('Location Tracking'),
+                  subtitle: Text(subtitle),
+                  trailing: trailing,
+                );
+              },
+            ),
+            const Divider(),
             ListTile(
               leading: const Icon(Icons.help),
               title: const Text('Help & Support'),
@@ -538,5 +660,12 @@ class _SettingsViewState extends State<SettingsView> {
     } else {
       return '${seconds}s';
     }
+  }
+
+  String _formatInterval(int seconds) {
+    if (seconds % 60 == 0 && seconds >= 60) {
+      return '${seconds ~/ 60} min';
+    }
+    return '$seconds sec';
   }
 }
