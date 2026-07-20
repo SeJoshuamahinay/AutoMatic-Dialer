@@ -108,7 +108,7 @@ class _LocalMessagesViewState extends State<LocalMessagesView>
     final list = <_ConversationSummary>[];
     for (final entry in grouped.entries) {
       final msgs = entry.value;
-      msgs.sort((a, b) => ((a.date ?? 0) as int).compareTo((b.date ?? 0) as int));
+      msgs.sort((a, b) => ((a.date ?? 0)).compareTo((b.date ?? 0)));
       final latest = msgs.last;
       list.add(_ConversationSummary(
         address: entry.key,
@@ -118,7 +118,7 @@ class _LocalMessagesViewState extends State<LocalMessagesView>
       ));
     }
     list.sort(
-      (a, b) => (b.latestDate as int).compareTo((a.latestDate as int)),
+      (a, b) => (b.latestDate).compareTo(a.latestDate),
     );
     return list;
   }

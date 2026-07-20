@@ -480,8 +480,9 @@ class _RcbcPostingRequestViewState extends State<RcbcPostingRequestView> {
                               firstDate: DateTime(2020),
                               lastDate: DateTime(2030),
                             );
-                            if (picked != null)
+                            if (picked != null) {
                               setSheetState(() => localDateFrom = picked);
+                            }
                           },
                           icon: const Icon(Icons.calendar_today, size: 16),
                           label: Text(
@@ -516,8 +517,9 @@ class _RcbcPostingRequestViewState extends State<RcbcPostingRequestView> {
                               firstDate: DateTime(2020),
                               lastDate: DateTime(2030),
                             );
-                            if (picked != null)
+                            if (picked != null) {
                               setSheetState(() => localDateTo = picked);
+                            }
                           },
                           icon: const Icon(Icons.calendar_today, size: 16),
                           label: Text(

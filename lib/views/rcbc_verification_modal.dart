@@ -517,10 +517,10 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 14, color: textColor),
-                  const SizedBox(width: 4),
-                ],
+                ...[
+                Icon(icon, size: 14, color: textColor),
+                const SizedBox(width: 4),
+              ],
                 Text(
                   status,
                   style: TextStyle(
