@@ -355,6 +355,8 @@ class DialerLoanRecord {
   final String? borrowerCity;
   final String? phone;
   final String? mobile;
+  final String? coMakerName;
+  final String? coMakerPhone;
   final String? outstandingBalance;
   final String? earliestDue;
   final int arrearsDays;
@@ -372,6 +374,8 @@ class DialerLoanRecord {
     this.borrowerCity,
     this.phone,
     this.mobile,
+    this.coMakerName,
+    this.coMakerPhone,
     this.outstandingBalance,
     this.earliestDue,
     required this.arrearsDays,
@@ -382,9 +386,21 @@ class DialerLoanRecord {
   });
 
   factory DialerLoanRecord.fromJson(Map<String, dynamic> json) {
-    // last_lafu may be a nested object {subject, date_of_contact, recovery_likelihood}
-    // or flat fields last_lafu_subject / last_lafu_date / last_lafu_likelihood
     final lafu = json['last_lafu'] as Map<String, dynamic>?;
+
+    String? coMakerName;
+    String? coMakerPhone;
+    // co_signer and co_maker are the same concept; prefer co_signer (new API format)
+    final coMakerSource = json.containsKey('co_signer')
+        ? json['co_signer']
+        : json['co_maker'];
+    if (coMakerSource is Map) {
+      coMakerName = coMakerSource['name']?.toString();
+      coMakerPhone = coMakerSource['phone']?.toString();
+    }
+    coMakerName ??= json['co_maker_name']?.toString();
+    coMakerPhone ??= json['co_maker_phone']?.toString();
+
     return DialerLoanRecord(
       loanId: ApiParser.parseInt(json['loan_id']) ?? 0,
       borrowerId: ApiParser.parseInt(json['borrower_id']),
@@ -394,6 +410,8 @@ class DialerLoanRecord {
       borrowerCity: json['borrower_city']?.toString(),
       phone: json['phone']?.toString(),
       mobile: json['mobile']?.toString(),
+      coMakerName: coMakerName,
+      coMakerPhone: coMakerPhone,
       outstandingBalance: json['outstanding_balance']?.toString(),
       earliestDue: json['earliest_due']?.toString(),
       arrearsDays: ApiParser.parseInt(json['arrears_days']) ?? 0,
@@ -411,10 +429,11 @@ class DialerLoanRecord {
 
   bool get hasPhone => phone != null && phone!.isNotEmpty;
   bool get hasMobile => mobile != null && mobile!.isNotEmpty;
-  bool get hasValidPhone => hasPhone || hasMobile;
+  bool get hasCoMakerPhone => coMakerPhone != null && coMakerPhone!.isNotEmpty;
+  bool get hasValidPhone => hasPhone || hasMobile || hasCoMakerPhone;
 
   /// Primary phone for calling (prefer phone, fallback to mobile)
-  String? get primaryPhone => hasPhone ? phone : (hasMobile ? mobile : null);
+  String? get primaryPhone => hasPhone ? phone : (hasMobile ? mobile : coMakerPhone);
 }
 
 /// Utility class for safe parsing of API response values

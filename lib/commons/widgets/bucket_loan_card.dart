@@ -14,7 +14,8 @@ class BucketLoanCard extends StatelessWidget {
   final VoidCallback onFollowUp;
   final VoidCallback? onCallPhone;
   final VoidCallback? onCallMobile;
-  final VoidCallback? onSendMessage;
+  final VoidCallback? onSendMessageBorrower;
+  final VoidCallback? onSendMessageCoMaker;
 
   const BucketLoanCard({
     super.key,
@@ -26,7 +27,8 @@ class BucketLoanCard extends StatelessWidget {
     required this.onFollowUp,
     this.onCallPhone,
     this.onCallMobile,
-    this.onSendMessage,
+    this.onSendMessageBorrower,
+    this.onSendMessageCoMaker,
   });
 
   static final _amtFmt = NumberFormat('#,##0.00', 'en_PH');
@@ -212,8 +214,12 @@ class BucketLoanCard extends StatelessWidget {
                       onViewDetails: onViewDetails,
                       onFollowUp: onFollowUp,
                       onCallPhone: onCallPhone,
+                      borrowerPhone: r.hasPhone ? r.phone : r.mobile,
                       onCallMobile: onCallMobile,
-                      onSendMessage: onSendMessage,
+                      coMakerName: r.coMakerName,
+                      coMakerPhone: r.coMakerPhone,
+                      onSendMessageBorrower: onSendMessageBorrower,
+                      onSendMessageCoMaker: onSendMessageCoMaker,
                     ),
                   ],
                 ),

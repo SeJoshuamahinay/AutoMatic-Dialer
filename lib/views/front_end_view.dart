@@ -161,7 +161,7 @@ class _FrontEndViewBodyState extends State<_FrontEndViewBody> {
     }
   }
 
-  void _openSendMessage(DialerLoanRecord r) {
+  void _openSendMessage(DialerLoanRecord r, {String? phone, String? name}) {
     final borrowerId = r.borrowerId;
     if (borrowerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -178,8 +178,8 @@ class _FrontEndViewBodyState extends State<_FrontEndViewBody> {
         builder: (_) => ChatTemplatePickerView(
           loanId: r.loanId,
           borrowerId: borrowerId,
-          borrowerName: r.fullName,
-          borrowerPhone: r.primaryPhone,
+          borrowerName: name ?? r.fullName,
+          borrowerPhone: phone ?? r.primaryPhone,
         ),
       ),
     );
@@ -419,23 +419,36 @@ class _FrontEndViewBodyState extends State<_FrontEndViewBody> {
                       secondaryColor: Colors.green,
                       onViewDetails: () => _openLoanDetail(r),
                       onFollowUp: () => _openFollowUp(r),
-                      onCallPhone: r.hasPhone
+                      onCallPhone: (r.hasPhone || r.hasMobile)
                           ? () => _makePhoneCall(
-                              r.phone!,
+                              r.hasPhone ? r.phone! : r.mobile!,
                               r.fullName,
                               loanId: r.loanId,
                               borrowerId: r.borrowerId,
                             )
                           : null,
-                      onCallMobile: r.hasMobile
+                      onCallMobile: r.hasCoMakerPhone
                           ? () => _makePhoneCall(
-                              r.mobile!,
-                              r.fullName,
+                              r.coMakerPhone!,
+                              r.coMakerName ?? r.fullName,
                               loanId: r.loanId,
                               borrowerId: r.borrowerId,
                             )
                           : null,
-                      onSendMessage: () => _openSendMessage(r),
+                      onSendMessageBorrower: (r.hasPhone || r.hasMobile)
+                          ? () => _openSendMessage(
+                              r,
+                              phone: r.hasPhone ? r.phone : r.mobile,
+                              name: r.fullName,
+                            )
+                          : null,
+                      onSendMessageCoMaker: r.hasCoMakerPhone
+                          ? () => _openSendMessage(
+                              r,
+                              phone: r.coMakerPhone,
+                              name: r.coMakerName ?? r.fullName,
+                            )
+                          : null,
                     );
                   },
                 ),

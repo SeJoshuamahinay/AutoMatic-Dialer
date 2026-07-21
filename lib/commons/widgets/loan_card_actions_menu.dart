@@ -6,8 +6,12 @@ class LoanCardActionsMenu extends StatelessWidget {
   final VoidCallback onViewDetails;
   final VoidCallback onFollowUp;
   final VoidCallback? onCallPhone;
+  final String? borrowerPhone;
   final VoidCallback? onCallMobile;
-  final VoidCallback? onSendMessage;
+  final String? coMakerName;
+  final String? coMakerPhone;
+  final VoidCallback? onSendMessageBorrower;
+  final VoidCallback? onSendMessageCoMaker;
 
   const LoanCardActionsMenu({
     super.key,
@@ -16,9 +20,22 @@ class LoanCardActionsMenu extends StatelessWidget {
     required this.onViewDetails,
     required this.onFollowUp,
     this.onCallPhone,
+    this.borrowerPhone,
     this.onCallMobile,
-    this.onSendMessage,
+    this.coMakerName,
+    this.coMakerPhone,
+    this.onSendMessageBorrower,
+    this.onSendMessageCoMaker,
   });
+
+  /// "Name — 0917..." when both present, otherwise whichever is non-empty.
+  String? _label(String? name, String? phone) {
+    final n = (name ?? '').trim();
+    final p = (phone ?? '').trim();
+    if (n.isNotEmpty && p.isNotEmpty) return '$n — $p';
+    if (p.isNotEmpty) return p;
+    return n.isNotEmpty ? n : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,8 +57,11 @@ class LoanCardActionsMenu extends StatelessWidget {
           case _LoanCardAction.callMobile:
             onCallMobile?.call();
             break;
-          case _LoanCardAction.sendMessage:
-            onSendMessage?.call();
+          case _LoanCardAction.messageBorrower:
+            onSendMessageBorrower?.call();
+            break;
+          case _LoanCardAction.messageCoMaker:
+            onSendMessageCoMaker?.call();
             break;
         }
       },
@@ -61,16 +81,20 @@ class LoanCardActionsMenu extends StatelessWidget {
           ),
         ];
 
+        if (onCallPhone != null || onCallMobile != null) {
+          items.add(const PopupMenuDivider());
+        }
+
         if (onCallPhone != null) {
-          items.addAll([
-            const PopupMenuDivider(),
+          items.add(
             _menuItem(
               value: _LoanCardAction.callPhone,
               icon: Icons.phone,
-              title: 'Call phone',
+              title: 'Call borrower',
+              subtitle: borrowerPhone,
               color: themeColor,
             ),
-          ]);
+          );
         }
 
         if (onCallMobile != null) {
@@ -78,21 +102,40 @@ class LoanCardActionsMenu extends StatelessWidget {
             _menuItem(
               value: _LoanCardAction.callMobile,
               icon: Icons.phone_android,
-              title: 'Call mobile',
+              title: 'Call comaker',
+              subtitle: _label(coMakerName, coMakerPhone),
               color: secondaryColor,
             ),
           );
         }
 
-        items.addAll([
-          const PopupMenuDivider(),
-          _menuItem(
-            value: _LoanCardAction.sendMessage,
-            icon: Icons.message_outlined,
-            title: 'Send message',
-            color: Colors.indigo,
-          ),
-        ]);
+        if (onSendMessageBorrower != null || onSendMessageCoMaker != null) {
+          items.add(const PopupMenuDivider());
+        }
+
+        if (onSendMessageBorrower != null) {
+          items.add(
+            _menuItem(
+              value: _LoanCardAction.messageBorrower,
+              icon: Icons.message_outlined,
+              title: 'Message borrower',
+              subtitle: borrowerPhone,
+              color: Colors.indigo,
+            ),
+          );
+        }
+
+        if (onSendMessageCoMaker != null) {
+          items.add(
+            _menuItem(
+              value: _LoanCardAction.messageCoMaker,
+              icon: Icons.forum_outlined,
+              title: 'Message comaker',
+              subtitle: _label(coMakerName, coMakerPhone),
+              color: Colors.indigo,
+            ),
+          );
+        }
 
         return items;
       },
@@ -114,6 +157,7 @@ class LoanCardActionsMenu extends StatelessWidget {
     required _LoanCardAction value,
     required IconData icon,
     required String title,
+    String? subtitle,
     required Color color,
   }) {
     return PopupMenuItem<_LoanCardAction>(
@@ -122,11 +166,34 @@ class LoanCardActionsMenu extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(width: 10),
-          Text(title),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(title),
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: color.withValues(alpha: 0.7),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-enum _LoanCardAction { viewDetails, followUp, callPhone, callMobile, sendMessage }
+enum _LoanCardAction {
+  viewDetails,
+  followUp,
+  callPhone,
+  callMobile,
+  messageBorrower,
+  messageCoMaker,
+}
