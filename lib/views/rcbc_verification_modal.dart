@@ -123,36 +123,35 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
         MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: ListView(
-          keyboardDismissBehavior:
-              ScrollViewKeyboardDismissBehavior.onDrag,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'Verify RCBC Payment',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Verify RCBC Payment',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const Spacer(),
+              if (_stage != _Stage.form)
+                TextButton.icon(
+                  onPressed: _reset,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('New'),
                 ),
-                const Spacer(),
-                if (_stage != _Stage.form)
-                  TextButton.icon(
-                    onPressed: _reset,
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text('New'),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Enter the last 6 digits of the reference number and the payment amount.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 16),
-            if (_stage == _Stage.form || _stage == _Stage.loading)
-              ..._buildForm(),
-            if (_stage == _Stage.success) ..._buildSuccess(),
-            if (_stage == _Stage.error) ..._buildError(),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Enter the last 6 digits of the reference number and the payment amount.',
+            style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 16),
+          if (_stage == _Stage.form || _stage == _Stage.loading)
+            ..._buildForm(),
+          if (_stage == _Stage.success) ..._buildSuccess(),
+          if (_stage == _Stage.error) ..._buildError(),
+        ],
+      ),
     );
   }
 
@@ -161,7 +160,7 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
       TextField(
         controller: _referenceCtrl,
         maxLength: 6,
-        keyboardType: TextInputType.number,
+        keyboardType: TextInputType.text,
         decoration: const InputDecoration(
           labelText: 'Last 6 digits of Reference No.',
           hintText: '000000',
@@ -518,9 +517,9 @@ class _RcbcVerificationModalState extends State<RcbcVerificationModal> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ...[
-                Icon(icon, size: 14, color: textColor),
-                const SizedBox(width: 4),
-              ],
+                  Icon(icon, size: 14, color: textColor),
+                  const SizedBox(width: 4),
+                ],
                 Text(
                   status,
                   style: TextStyle(
