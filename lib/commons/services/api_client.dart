@@ -77,6 +77,31 @@ class ApiClient {
     return response;
   }
 
+  // ── POST (multipart) ───────────────────────────────────────────────────────
+
+  /// Form fields plus file uploads, e.g. LAFU attachments.
+  static Future<http.Response> postMultipart(
+    String endpoint, {
+    Map<String, String> fields = const {},
+    List<http.MultipartFile> files = const [],
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    final token = await SharedPrefsStorageService.getAuthToken();
+    final baseUrl = EnvironmentConfig.apiBaseUrl;
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$endpoint'))
+      ..headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+        'X-App-Version': AppConfig.version,
+      })
+      ..fields.addAll(fields)
+      ..files.addAll(files);
+    final streamed = await request.send().timeout(timeout);
+    final response = await http.Response.fromStream(streamed);
+    await _checkAuth(response);
+    return response;
+  }
+
   // ── PUT ────────────────────────────────────────────────────────────────────
 
   static Future<http.Response> put(
