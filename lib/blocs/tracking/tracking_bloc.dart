@@ -1,60 +1,55 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../commons/services/location_tracking_service.dart';
 import '../../commons/services/shared_prefs_storage_service.dart';
+import '../../commons/services/tracking_log.dart';
+import '../../commons/services/tracking_task_handler.dart';
 import 'tracking_event.dart';
 import 'tracking_state.dart';
 
+/// Starts and stops the tracking foreground service. The tracking itself runs
+/// in the service's isolate (TrackingTaskHandler); this bloc only mirrors the
+/// status the task reports so the settings screen can show it.
 class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
-  final LocationTrackingService _trackingService;
-
-  TrackingBloc({LocationTrackingService? trackingService})
-      : _trackingService = trackingService ?? LocationTrackingService(),
-        super(const TrackingInitial()) {
+  TrackingBloc() : super(const TrackingInitial()) {
     on<StartTrackingRequested>(_onStartTrackingRequested);
     on<StopTrackingRequested>(_onStopTrackingRequested);
-    on<TrackingIntervalUpdated>(_onTrackingIntervalUpdated);
-    on<TrackingSocketStateChanged>(_onTrackingSocketStateChanged);
+    on<TrackingStatusReceived>(_onTrackingStatusReceived);
 
-    // Surface admin-set interval changes into the UI.
-    _trackingService.onIntervalChanged =
-        (interval) => add(TrackingIntervalUpdated(interval));
-
-    // Surface live WebSocket connect/disconnect into the UI.
-    _trackingService.onConnectionChanged =
-        (connected) => add(TrackingSocketStateChanged(connected));
+    FlutterForegroundTask.addTaskDataCallback(_onTaskData);
 
     // Connecting is now driven by auth (always-on while logged in), not a
     // persisted user toggle — see the auth bridge in main.dart.
   }
 
-  void _onTrackingIntervalUpdated(
-    TrackingIntervalUpdated event,
-    Emitter<TrackingState> emit,
-  ) {
-    debugPrint('[TrackingBloc] interval updated: ${event.intervalSeconds}s');
-    if (state is TrackingActive || state is TrackingStarting) {
-      emit(TrackingActive(
-        intervalSeconds: event.intervalSeconds,
-        socketConnected: _trackingService.isSocketConnected,
-      ));
-    }
+  void _onTaskData(Object data) {
+    final status = TrackingStatus.fromData(data);
+    if (status != null) add(TrackingStatusReceived(status));
   }
 
-  void _onTrackingSocketStateChanged(
-    TrackingSocketStateChanged event,
+  void _onTrackingStatusReceived(
+    TrackingStatusReceived event,
     Emitter<TrackingState> emit,
   ) {
-    debugPrint('[TrackingBloc] socket connected: ${event.connected}');
-    if (state is TrackingActive || state is TrackingStarting) {
-      emit(TrackingActive(
-        intervalSeconds: _trackingService.currentInterval,
-        socketConnected: event.connected,
-      ));
-    }
+    if (state is! TrackingActive && state is! TrackingStarting) return;
+    final status = event.status;
+    emit(TrackingActive(
+      intervalSeconds: status.intervalSeconds,
+      socketConnected: status.socketConnected,
+      reporting: status.reporting,
+      lastUploadAt: status.lastUploadAt,
+      error: status.error,
+    ));
+  }
+
+  @override
+  Future<void> close() {
+    FlutterForegroundTask.removeTaskDataCallback(_onTaskData);
+    return super.close();
   }
 
   Future<void> _onStartTrackingRequested(
@@ -82,44 +77,55 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       return;
     }
 
+    // "Allow all the time" lets Android restart tracking by itself after a
+    // reboot or an app update. Without it a location service can't start
+    // from the background, so auto-restart stays off.
+    if (Platform.isAndroid && locationPermission == LocationPermission.whileInUse) {
+      locationPermission = await Geolocator.requestPermission();
+      TrackingLog.info('TrackingBloc', 'background location permission: $locationPermission');
+    }
+    final autoRestart = Platform.isAndroid && locationPermission == LocationPermission.always;
+
     final notificationPermission = await FlutterForegroundTask.checkNotificationPermission();
     debugPrint('[TrackingBloc] notification permission: $notificationPermission');
     if (notificationPermission != NotificationPermission.granted) {
       await FlutterForegroundTask.requestNotificationPermission();
     }
 
-    _initForegroundTask();
+    // OEM battery savers (Xiaomi, Oppo, Vivo, Samsung) kill background apps
+    // even with a foreground service running unless the app is exempted.
+    if (Platform.isAndroid && !await FlutterForegroundTask.isIgnoringBatteryOptimizations) {
+      final exempted = await FlutterForegroundTask.requestIgnoreBatteryOptimization();
+      TrackingLog.info('TrackingBloc', 'battery optimization exemption: $exempted');
+    }
+
+    _initForegroundTask(autoRestart: autoRestart);
 
     // A previous attempt (e.g. one that failed after the service started)
     // can leave the foreground service running — starting it again throws
     // ServiceAlreadyStartedException instead of just being a no-op.
+    //
+    // It is also what keeps tracking alive when the app is swiped away: on the
+    // next launch the service (and its task) is still running, so just ask it
+    // for its status.
     if (await FlutterForegroundTask.isRunningService) {
-      debugPrint('[TrackingBloc] foreground service already running, reusing it');
+      TrackingLog.info('TrackingBloc', 'foreground service already running, reusing it');
+      FlutterForegroundTask.sendDataToTask(trackingStatusRequest);
     } else {
       final serviceResult = await FlutterForegroundTask.startService(
         notificationTitle: 'Lenderly Dialer',
         notificationText: 'Location tracking is active',
+        callback: startTrackingCallback,
       );
-      debugPrint('[TrackingBloc] foreground service result: $serviceResult');
+      TrackingLog.info('TrackingBloc', 'foreground service result: $serviceResult');
       if (serviceResult is ServiceRequestFailure) {
         emit(TrackingError('Could not start the background service: ${serviceResult.error}'));
         return;
       }
     }
 
-    try {
-      await _trackingService.start();
-      debugPrint('[TrackingBloc] tracking active');
-      await SharedPrefsStorageService.saveTrackingEnabled(true);
-      emit(TrackingActive(
-        intervalSeconds: _trackingService.currentInterval,
-        socketConnected: _trackingService.isSocketConnected,
-      ));
-    } catch (e) {
-      debugPrint('[TrackingBloc] failed to start tracking: $e');
-      await FlutterForegroundTask.stopService();
-      emit(TrackingError('Failed to start tracking: $e'));
-    }
+    await SharedPrefsStorageService.saveTrackingEnabled(true);
+    // Stays TrackingStarting until the task's first status report arrives.
   }
 
   Future<void> _onStopTrackingRequested(
@@ -127,13 +133,13 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
     Emitter<TrackingState> emit,
   ) async {
     debugPrint('[TrackingBloc] stop requested');
-    await _trackingService.stop();
+    // The task's onDestroy tells the server this device went offline.
     await FlutterForegroundTask.stopService();
     await SharedPrefsStorageService.saveTrackingEnabled(false);
     emit(const TrackingInactive());
   }
 
-  void _initForegroundTask() {
+  void _initForegroundTask({required bool autoRestart}) {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'lenderly_dialer_tracking',
@@ -143,8 +149,10 @@ class TrackingBloc extends Bloc<TrackingEvent, TrackingState> {
       iosNotificationOptions: const IOSNotificationOptions(),
       foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.nothing(),
-        autoRunOnBoot: false,
+        autoRunOnBoot: autoRestart,
+        autoRunOnMyPackageReplaced: autoRestart,
         allowWakeLock: true,
+        allowWifiLock: true,
       ),
     );
   }

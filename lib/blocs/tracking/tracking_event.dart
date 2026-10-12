@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../commons/services/tracking_task_handler.dart';
+
 abstract class TrackingEvent extends Equatable {
   const TrackingEvent();
 
@@ -15,22 +17,13 @@ class StopTrackingRequested extends TrackingEvent {
   const StopTrackingRequested();
 }
 
-/// Fired when the admin-set interval changes while tracking is active.
-class TrackingIntervalUpdated extends TrackingEvent {
-  final int intervalSeconds;
+/// Fired when the foreground task reports its status (interval, socket,
+/// whether the GPS timer is running, last upload).
+class TrackingStatusReceived extends TrackingEvent {
+  final TrackingStatus status;
 
-  const TrackingIntervalUpdated(this.intervalSeconds);
-
-  @override
-  List<Object> get props => [intervalSeconds];
-}
-
-/// Fired when the WebSocket connects or drops.
-class TrackingSocketStateChanged extends TrackingEvent {
-  final bool connected;
-
-  const TrackingSocketStateChanged(this.connected);
+  const TrackingStatusReceived(this.status);
 
   @override
-  List<Object> get props => [connected];
+  List<Object> get props => [status.toMap().toString()];
 }

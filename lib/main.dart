@@ -2,6 +2,7 @@ import 'package:lenderly_dialer/views/main_navigation_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'dart:ui';
 import 'blocs/bloc_providers.dart';
 import 'blocs/auth/auth_bloc.dart';
@@ -79,6 +80,8 @@ void main() async {
     bootError = e.toString();
   }
 
+  // Lets the tracking foreground task report its status to the UI.
+  FlutterForegroundTask.initCommunicationPort();
   runApp(MyApp(bootError: bootError));
 }
 

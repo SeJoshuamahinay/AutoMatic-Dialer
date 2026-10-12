@@ -7,6 +7,15 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'api_client.dart';
 import 'environment_config.dart';
+import 'tracking_log.dart';
+
+const _tag = 'TrackingSocket';
+
+/// Fallback when the server doesn't send activity_timeout (Pusher default).
+const _defaultActivityTimeout = Duration(seconds: 120);
+
+/// How long to wait for any reply after our ping before giving up on the socket.
+const _pongTimeout = Duration(seconds: 30);
 
 /// Minimal Pusher-protocol client for Laravel Reverb.
 ///
@@ -20,6 +29,9 @@ class TrackingSocketService {
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
   Timer? _reconnectTimer;
+  Timer? _heartbeatTimer;
+  DateTime _lastMessageAt = DateTime.now();
+  Duration _activityTimeout = _defaultActivityTimeout;
   String? _deviceId;
   String? _socketId;
   bool _subscribed = false;
@@ -31,6 +43,7 @@ class TrackingSocketService {
   void Function(String requestId)? onRequestLocation;
   void Function()? onStopTracking;
   void Function()? onStopService;
+  void Function()? onRequestLogs;
   void Function(bool connected)? onConnectionStateChange;
 
   String get _channelName => 'private-device.$_deviceId';
@@ -46,6 +59,7 @@ class TrackingSocketService {
   Future<void> disconnect() async {
     _manuallyDisconnected = true;
     _reconnectTimer?.cancel();
+    _heartbeatTimer?.cancel();
     await _subscription?.cancel();
     await _channel?.sink.close();
     _channel = null;
@@ -65,34 +79,64 @@ class TrackingSocketService {
       _subscription = _channel!.stream.listen(
         _handleMessage,
         onDone: () {
-          debugPrint('[TrackingSocket] socket closed (onDone)');
+          TrackingLog.warn(_tag, 'socket closed (onDone)');
           _handleDisconnect();
         },
         onError: (e) {
-          debugPrint('[TrackingSocket] socket error: $e');
+          TrackingLog.warn(_tag, 'socket error: $e');
           _handleDisconnect();
         },
       );
     } catch (e) {
-      debugPrint('[TrackingSocket] failed to open socket: $e');
+      TrackingLog.error(_tag, 'failed to open socket', e);
       _handleDisconnect();
     }
   }
 
+  /// Mobile networks often drop an idle socket without ever closing it, so
+  /// onDone never fires and the app silently stops hearing commands. Ping when
+  /// the line has been quiet for activity_timeout, and reconnect if nothing
+  /// comes back within [_pongTimeout].
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      final idle = DateTime.now().difference(_lastMessageAt);
+      if (idle > _activityTimeout + _pongTimeout) {
+        _forceReconnect('no reply for ${idle.inSeconds}s');
+      } else if (idle > _activityTimeout) {
+        _send({'event': 'pusher:ping', 'data': {}});
+      }
+    });
+  }
+
+  /// Drop the current socket without waiting for a close handshake (a dead
+  /// connection may never finish one) and go through the normal backoff.
+  void _forceReconnect(String reason) {
+    TrackingLog.warn(_tag, 'forcing reconnect: $reason');
+    _heartbeatTimer?.cancel();
+    _subscription?.cancel();
+    _subscription = null;
+    _channel?.sink.close();
+    _channel = null;
+    _handleDisconnect();
+  }
+
   void _handleDisconnect() {
+    _heartbeatTimer?.cancel();
     _subscribed = false;
     onConnectionStateChange?.call(false);
     if (_manuallyDisconnected) return;
 
     _reconnectAttempt++;
     final delaySeconds = min(30, pow(2, _reconnectAttempt).toInt());
-    debugPrint('[TrackingSocket] reconnecting in ${delaySeconds}s (attempt $_reconnectAttempt)');
+    TrackingLog.info(_tag, 'reconnecting in ${delaySeconds}s (attempt $_reconnectAttempt)');
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(Duration(seconds: delaySeconds), _openSocket);
   }
 
   void _handleMessage(dynamic raw) {
     debugPrint('[TrackingSocket] raw message: $raw');
+    _lastMessageAt = DateTime.now();
     final message = jsonDecode(raw as String) as Map<String, dynamic>;
     final event = message['event'] as String?;
 
@@ -100,8 +144,12 @@ class TrackingSocketService {
       case 'pusher:connection_established':
         final data = jsonDecode(message['data'] as String) as Map<String, dynamic>;
         _socketId = data['socket_id'] as String?;
+        _activityTimeout = Duration(
+          seconds: (data['activity_timeout'] as num?)?.toInt() ?? _defaultActivityTimeout.inSeconds,
+        );
         _reconnectAttempt = 0;
-        debugPrint('[TrackingSocket] connection established, socket_id=$_socketId');
+        _startHeartbeat();
+        TrackingLog.info(_tag, 'connection established, socket_id=$_socketId');
         onConnectionStateChange?.call(true);
         _subscribeToDeviceChannel();
         break;
@@ -112,39 +160,44 @@ class TrackingSocketService {
 
       case 'pusher_internal:subscription_succeeded':
         _subscribed = true;
-        debugPrint('[TrackingSocket] subscribed to $_channelName');
+        TrackingLog.info(_tag, 'subscribed to $_channelName');
         break;
 
       case 'pusher:subscription_error':
         _subscribed = false;
-        debugPrint('[TrackingSocket] subscription error for $_channelName');
+        TrackingLog.warn(_tag, 'subscription error for $_channelName: ${message['data']}');
         break;
 
       case 'start_tracking':
         final interval = _intData(message, 'interval_seconds');
-        debugPrint('[TrackingSocket] received start_tracking, interval=${interval}s');
+        TrackingLog.info(_tag, 'received start_tracking, interval=${interval}s');
         onStartTracking?.call(interval);
         break;
 
       case 'change_interval':
         final interval = _intData(message, 'interval_seconds');
-        debugPrint('[TrackingSocket] received change_interval, interval=${interval}s');
+        TrackingLog.info(_tag, 'received change_interval, interval=${interval}s');
         onChangeInterval?.call(interval);
         break;
 
       case 'request_location':
         final requestId = _stringData(message, 'request_id');
-        debugPrint('[TrackingSocket] received request_location, id=$requestId');
+        TrackingLog.info(_tag, 'received request_location, id=$requestId');
         onRequestLocation?.call(requestId);
         break;
 
       case 'stop_tracking':
-        debugPrint('[TrackingSocket] received stop_tracking');
+        TrackingLog.info(_tag, 'received stop_tracking');
         onStopTracking?.call();
         break;
 
+      case 'request_logs':
+        TrackingLog.info(_tag, 'received request_logs');
+        onRequestLogs?.call();
+        break;
+
       case 'stop_service':
-        debugPrint('[TrackingSocket] received stop_service');
+        TrackingLog.info(_tag, 'received stop_service');
         onStopService?.call();
         break;
     }
@@ -164,17 +217,25 @@ class TrackingSocketService {
     if (_socketId == null || _deviceId == null) return;
 
     debugPrint('[TrackingSocket] requesting auth for $_channelName');
-    final response = await ApiClient.post(
-      '/broadcasting/auth',
-      body: {'channel_name': _channelName, 'socket_id': _socketId},
-    );
+    final String auth;
+    try {
+      final response = await ApiClient.post(
+        '/broadcasting/auth',
+        body: {'channel_name': _channelName, 'socket_id': _socketId},
+      );
 
-    if (response.statusCode != 200) {
-      debugPrint('[TrackingSocket] auth failed (HTTP ${response.statusCode}): ${response.body}');
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+      }
+
+      auth = (jsonDecode(response.body) as Map<String, dynamic>)['auth'] as String;
+    } catch (e) {
+      // Connected but unsubscribed means admin commands never arrive. Close
+      // the socket so onDone runs the normal backoff reconnect + resubscribe.
+      TrackingLog.error(_tag, 'channel auth failed', e);
+      _forceReconnect('channel auth failed');
       return;
     }
-
-    final auth = (jsonDecode(response.body) as Map<String, dynamic>)['auth'] as String;
 
     _send({
       'event': 'pusher:subscribe',

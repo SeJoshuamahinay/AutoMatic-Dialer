@@ -44,6 +44,10 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
   static const String _lafuEndpoint = '/api/lenderly/dialer/lafu';
   static const String _optionsEndpoint = '/api/lenderly/dialer/lafuOptions';
   static const int _maxFileBytes = 10 * 1024 * 1024;
+
+  /// A PTP promise date is today up to this many days ahead.
+  /// Mirrors LafuEntryService::PTP_MAX_DAYS on the server.
+  static const int _ptpMaxDays = 2;
   static final RegExp _decimalRegExp = RegExp(r'^\d*\.?\d{0,2}');
   static const MaterialColor _brand = Colors.indigo;
 
@@ -167,12 +171,30 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
+  DateTime get _today {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
+  }
+
+  DateTime get _ptpFirst => _today;
+  DateTime get _ptpLast => _today.add(const Duration(days: _ptpMaxDays));
+
+  /// Keeps the promise date inside the PTP window whenever PTP is chosen.
+  void _clampPromiseDate() {
+    if (!_ptp) return;
+    if (_actionDate.isBefore(_ptpFirst) || _actionDate.isAfter(_ptpLast)) {
+      _actionDate = _ptpFirst;
+    }
+  }
+
   Future<void> _pickDate({required bool isContact}) async {
+    final promise = !isContact && _ptp;
     final picked = await showDatePicker(
       context: context,
       initialDate: isContact ? _dateOfContact : _actionDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
+      firstDate: promise ? _ptpFirst : DateTime(2020),
+      lastDate: promise ? _ptpLast : DateTime(2100),
+      helpText: promise ? 'Promise date (today up to $_ptpMaxDays days)' : null,
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -809,6 +831,7 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
               onSelected: (v) {
                 _attemptResult = v;
                 _subject = null;
+                _clampPromiseDate();
               },
             ),
           ],
@@ -835,7 +858,10 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
                     '0': Icons.chat_bubble_outline,
                   },
                   color: Colors.deepPurple,
-                  onSelected: (v) => _isPtp = v == '1',
+                  onSelected: (v) {
+                    _isPtp = v == '1';
+                    _clampPromiseDate();
+                  },
                 ),
                 const SizedBox(height: 14),
               ],

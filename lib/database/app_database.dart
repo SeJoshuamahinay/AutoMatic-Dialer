@@ -71,6 +71,10 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deletePendingLocation(int id) =>
       (delete(pendingLocations)..where((l) => l.id.equals(id))).go();
 
+  /// Remove a batch of queued locations once the server has them.
+  Future<void> deletePendingLocations(List<int> ids) =>
+      (delete(pendingLocations)..where((l) => l.id.isIn(ids))).go();
+
   // ===== CALL LOGS QUERIES =====
 
   /// Insert a new call log entry

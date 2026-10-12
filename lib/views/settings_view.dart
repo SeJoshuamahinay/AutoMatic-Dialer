@@ -537,12 +537,17 @@ class _SettingsViewState extends State<SettingsView> {
                   );
                 } else if (isActive) {
                   final wsConnected = state.socketConnected;
-                  final base = interval != null
+                  final base = state.reporting && interval != null
                       ? 'Reporting every ${_formatInterval(interval)}'
-                      : 'Awaiting admin command';
-                  subtitle = wsConnected
-                      ? '$base • server connected'
-                      : '$base • reconnecting to server…';
+                      : 'Waiting for working hours or admin';
+                  final lastUpload = state.lastUploadAt;
+                  final lastSent = lastUpload == null
+                      ? ''
+                      : '\nLast sent ${TimeOfDay.fromDateTime(lastUpload).format(context)}';
+                  subtitle = state.error ??
+                      (wsConnected
+                          ? '$base • server connected$lastSent'
+                          : '$base • reconnecting to server…$lastSent');
                   iconColor = wsConnected ? Colors.green : Colors.orange;
                   trailing = Chip(
                     avatar: Icon(

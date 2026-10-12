@@ -22,10 +22,31 @@ class TrackingActive extends TrackingState {
   /// Whether the live WebSocket (Reverb) is currently connected.
   final bool socketConnected;
 
-  const TrackingActive({this.intervalSeconds, this.socketConnected = false});
+  /// Whether the GPS timer is running (admin or working hours started it).
+  final bool reporting;
+
+  /// When the last location reached the server.
+  final DateTime? lastUploadAt;
+
+  /// Set while the task can't reach the server and is retrying.
+  final String? error;
+
+  const TrackingActive({
+    this.intervalSeconds,
+    this.socketConnected = false,
+    this.reporting = false,
+    this.lastUploadAt,
+    this.error,
+  });
 
   @override
-  List<Object> get props => [intervalSeconds ?? -1, socketConnected];
+  List<Object> get props => [
+        intervalSeconds ?? -1,
+        socketConnected,
+        reporting,
+        lastUploadAt?.millisecondsSinceEpoch ?? -1,
+        error ?? '',
+      ];
 }
 
 class TrackingInactive extends TrackingState {
