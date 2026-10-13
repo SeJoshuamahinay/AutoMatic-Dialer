@@ -68,7 +68,8 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
 
   // Form state
   DateTime _dateOfContact = DateTime.now();
-  DateTime _actionDate = DateTime.now();
+  // Promise / next follow-up carries a time; the API takes "Y-m-d HH:mm".
+  DateTime _actionDate = _nextHour();
   String? _modeOfContact;
   String? _attemptResult; // contacted | not_contacted
   bool? _isPtp;
@@ -159,6 +160,20 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
   String _formatDate(DateTime dt) =>
       '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
 
+  String _formatDateTime(DateTime dt) =>
+      '${_formatDate(dt)} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+  String _displayTime(DateTime dt) {
+    final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    return '$h:${dt.minute.toString().padLeft(2, '0')} ${dt.hour < 12 ? 'AM' : 'PM'}';
+  }
+
+  /// Start of the next whole hour — always later than now, so a fresh PTP is valid.
+  static DateTime _nextHour() {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day, n.hour).add(const Duration(hours: 1));
+  }
+
   String _money(double? v) {
     if (v == null) return '—';
     final parts = v.toStringAsFixed(2).split('.');
@@ -178,12 +193,14 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
 
   DateTime get _ptpFirst => _today;
   DateTime get _ptpLast => _today.add(const Duration(days: _ptpMaxDays));
+  // Same window as the API: later than now, up to the end of the last allowed day.
+  DateTime get _ptpLastMoment => _ptpLast.add(const Duration(hours: 23, minutes: 59));
 
-  /// Keeps the promise date inside the PTP window whenever PTP is chosen.
+  /// Keeps the promise inside the PTP window whenever PTP is chosen.
   void _clampPromiseDate() {
     if (!_ptp) return;
-    if (_actionDate.isBefore(_ptpFirst) || _actionDate.isAfter(_ptpLast)) {
-      _actionDate = _ptpFirst;
+    if (!_actionDate.isAfter(DateTime.now()) || _actionDate.isAfter(_ptpLastMoment)) {
+      _actionDate = _nextHour();
     }
   }
 
@@ -197,13 +214,28 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
       helpText: promise ? 'Promise date (today up to $_ptpMaxDays days)' : null,
     );
     if (picked == null || !mounted) return;
-    setState(() {
-      if (isContact) {
+    if (isContact) {
+      setState(() {
         _dateOfContact = picked;
+        _errors.remove('date_of_contact');
+      });
+      return;
+    }
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_actionDate),
+      helpText: promise ? 'Promise time' : 'Follow-up time',
+    );
+    if (time == null || !mounted) return;
+    final chosen = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
+    setState(() {
+      _actionDate = chosen;
+      if (promise && !chosen.isAfter(DateTime.now())) {
+        _errors['action_date'] = 'The promise time must be later than now.';
       } else {
-        _actionDate = picked;
+        _errors.remove('action_date');
       }
-      _errors.remove(isContact ? 'date_of_contact' : 'action_date');
     });
   }
 
@@ -341,7 +373,7 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
         'mode_of_contact': _modeOfContact!,
         'attempt_result': _attemptResult!,
         'amount_type': _amountType!,
-        'action_date': _formatDate(_actionDate),
+        'action_date': _formatDateTime(_actionDate),
       };
       if (_contacted) {
         fields['is_ptp'] = _isPtp == true ? '1' : '0';
@@ -567,6 +599,7 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
     required DateTime value,
     required bool isContact,
     required String field,
+    bool withTime = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,7 +613,10 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
             child: Row(children: [
               Icon(Icons.event_outlined, size: 18, color: _brand.shade400),
               const SizedBox(width: 8),
-              Text(_formatDate(value), style: const TextStyle(fontSize: 14)),
+              Text(
+                withTime ? '${_formatDate(value)}  ${_displayTime(value)}' : _formatDate(value),
+                style: const TextStyle(fontSize: 14),
+              ),
             ]),
           ),
         ),
@@ -984,10 +1020,11 @@ class _FollowUpFormViewState extends State<FollowUpFormView> {
               ],
               const SizedBox(height: 14),
               _dateField(
-                label: _ptp ? 'Promise Date' : 'Next Follow-up Date',
+                label: _ptp ? 'Promise Date & Time' : 'Next Follow-up Date & Time',
                 value: _actionDate,
                 isContact: false,
                 field: 'action_date',
+                withTime: true,
               ),
             ],
           ),

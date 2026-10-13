@@ -657,7 +657,7 @@ class _LoanDetailViewState extends State<LoanDetailView>
                     Icon(Icons.event, size: 12, color: Colors.grey[500]),
                     const SizedBox(width: 4),
                     Text(
-                      'Next: ${_fDate(f.actionDate)}',
+                      'Next: ${_fDateTime(f.actionDate)}',
                       style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                   ],
@@ -820,11 +820,20 @@ class _LoanDetailViewState extends State<LoanDetailView>
 
   static final _currencyFmt = NumberFormat('#,##0.00', 'en_PH');
   static final _dateFmt = DateFormat('MMM d, yyyy');
+  static final _dateTimeFmt = DateFormat('MMM d, yyyy h:mm a');
 
   String _fDate(String? raw) {
     if (raw == null || raw.isEmpty) return '—';
     final dt = DateTime.tryParse(raw);
     return dt != null ? _dateFmt.format(dt) : raw;
+  }
+
+  /// For "Y-m-d H:i" values (LAFU action date); date-only values show just the date.
+  String _fDateTime(String? raw) {
+    if (raw == null || raw.isEmpty) return '—';
+    final dt = DateTime.tryParse(raw);
+    if (dt == null) return raw;
+    return raw.length > 10 ? _dateTimeFmt.format(dt) : _dateFmt.format(dt);
   }
 
   String _fAmt(dynamic raw) {
