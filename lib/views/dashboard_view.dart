@@ -23,7 +23,9 @@ import 'package:lenderly_dialer/views/attendance_request_view.dart';
 import 'package:lenderly_dialer/views/reimbursement_view.dart';
 import 'package:lenderly_dialer/views/rcbc_verification_modal.dart';
 import 'package:lenderly_dialer/views/visitation_request_view.dart';
+import 'package:lenderly_dialer/views/visit_requests_view.dart';
 import 'package:lenderly_dialer/views/rcbc_posting_request_view.dart';
+import 'package:lenderly_dialer/views/routing_plan_view.dart';
 
 class DashboardView extends StatefulWidget {
   const DashboardView({super.key});
@@ -216,6 +218,24 @@ class _DashboardViewState extends State<DashboardView> {
                 icon: Icons.route,
                 color: const Color(0xFF0F3D3E),
                 onTap: _openVisitationRequestPage,
+              ),
+              _quickActionCard(
+                title: 'CI Requests',
+                subtitle: 'Assigned to you from Symphony',
+                icon: Icons.assignment_ind_outlined,
+                color: const Color(0xFF0E7490),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const VisitRequestsView()),
+                ),
+              ),
+              _quickActionCard(
+                title: 'Routing Plan',
+                subtitle: 'Today\'s visit route & map',
+                icon: Icons.alt_route_rounded,
+                color: const Color(0xFF1677FF),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const RoutingPlanView()),
+                ),
               ),
               _quickActionCard(
                 title: 'Reimbursements',

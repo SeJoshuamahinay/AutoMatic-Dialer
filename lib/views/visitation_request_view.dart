@@ -6,10 +6,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:lenderly_dialer/commons/models/visit_request_model.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'package:lenderly_dialer/commons/services/app_config.dart';
 import 'package:lenderly_dialer/commons/services/environment_config.dart';
 import 'package:lenderly_dialer/commons/services/shared_prefs_storage_service.dart';
+import 'package:lenderly_dialer/commons/services/visit_request_service.dart';
 
 class _BorrowerSearchItem {
   final int loanId;
@@ -52,7 +54,11 @@ class VisitationRequestView extends StatefulWidget {
   final int? borrowerId;
   final String? borrowerName;
 
-  const VisitationRequestView({super.key, this.borrowerId, this.borrowerName});
+  /// Request mode: submitting findings for a CI/visit request filed in Symphony.
+  /// Type and borrower come from the request and are locked; the result closes it.
+  final VisitRequest? visitRequest;
+
+  const VisitationRequestView({super.key, this.borrowerId, this.borrowerName, this.visitRequest});
 
   @override
   State<VisitationRequestView> createState() => _VisitationRequestViewState();
@@ -131,6 +137,14 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
     if (widget.borrowerId != null) {
       _borrowerIdCtrl.text = widget.borrowerId.toString();
       _selectedBorrowerName = widget.borrowerName;
+    }
+    final request = widget.visitRequest;
+    if (request != null) {
+      _borrowerIdCtrl.text = request.borrowerId.toString();
+      _selectedBorrowerName = request.borrowerName;
+      _selectedType = request.type;
+      _selectedLoanId = request.loanId;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _prefillAddressFromLoan(request.loanId));
     }
     _loadUser();
     _loadCountries();
@@ -673,6 +687,11 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
       return;
     }
 
+    if (_isRequestMode) {
+      await _submitRequestFindings();
+      return;
+    }
+
     final payload = <String, dynamic>{
       'user_id': _userId,
       'borrower_id': borrowerId,
@@ -755,11 +774,58 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
     }
   }
 
+  bool get _isRequestMode => widget.visitRequest != null;
+
+  /// Request mode: post the findings to the request, which logs the visit and emails
+  /// the requester.
+  Future<void> _submitRequestFindings() async {
+    if (_verificationResult == null) {
+      _showSnack('Choose a verification result.', isError: true);
+      return;
+    }
+    final request = widget.visitRequest!;
+    setState(() => _isSubmitting = true);
+    try {
+      final response = await ApiClient.postMultipart(
+        VisitRequestService.completeEndpoint(request.id),
+        fields: {
+          'user_id': _userId.toString(),
+          'longitude': _longitudeCtrl.text.trim(),
+          'latitude': _latitudeCtrl.text.trim(),
+          'visited_at': _visitedAt.toIso8601String(),
+          'verification_result': _verificationResult! ? '1' : '0',
+          'fraud_flag': _fraudFlag ? '1' : '0',
+          if (_remarksCtrl.text.trim().isNotEmpty) 'remarks': _remarksCtrl.text.trim(),
+          if ((_selectedPrimaryReason ?? '').trim().isNotEmpty) 'primary_reason': _selectedPrimaryReason!,
+          if ((_countryById(_selectedCountryId)?.name ?? '').isNotEmpty) 'country': _countryById(_selectedCountryId)!.name,
+          if (_regionCtrl.text.trim().isNotEmpty) 'region': _regionCtrl.text.trim(),
+          if (_cityCtrl.text.trim().isNotEmpty) 'city': _cityCtrl.text.trim(),
+          if (_brgyCtrl.text.trim().isNotEmpty) 'brgy': _brgyCtrl.text.trim(),
+          if (_houseNumberCtrl.text.trim().isNotEmpty) 'house_number': _houseNumberCtrl.text.trim(),
+        },
+        files: [await http.MultipartFile.fromPath('attachment', _attachment!.path)],
+      );
+
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        _showSnack((body['message'] ?? 'Findings submitted.').toString());
+        Navigator.of(context).pop(true);
+        return;
+      }
+      _showSnack(_extractApiMessage(response.body, response.statusCode, 'Failed to submit findings.'), isError: true);
+    } catch (e) {
+      _showSnack('Submit failed: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Visitation Request'),
+        title: Text(_isRequestMode ? '${widget.visitRequest!.type} Findings' : 'Visitation Request'),
         backgroundColor: const Color(0xFF0F3D3E),
         foregroundColor: Colors.white,
       ),
@@ -784,6 +850,30 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
+                    if (_isRequestMode) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${widget.visitRequest!.loanNumber ?? 'Loan #${widget.visitRequest!.loanId}'} · requested by ${widget.visitRequest!.requestedBy ?? '—'}',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            if ((widget.visitRequest!.instructions ?? '').isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(widget.visitRequest!.instructions!),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       value: _selectedType,
@@ -792,7 +882,7 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
                         labelText: 'Visitation Type',
                         border: OutlineInputBorder(),
                       ),
-                      items: _types
+                      items: {..._types, if (_selectedType != null) _selectedType!}
                           .map(
                             (t) => DropdownMenuItem<String>(
                               value: t,
@@ -800,7 +890,8 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
                             ),
                           )
                           .toList(),
-                      onChanged: (v) => setState(() => _selectedType = v),
+                      // Request mode: the type comes from the request.
+                      onChanged: _isRequestMode ? null : (v) => setState(() => _selectedType = v),
                       validator: (v) => _requiredText(v, 'Visitation type'),
                     ),
                     const SizedBox(height: 12),
@@ -816,7 +907,7 @@ class _VisitationRequestViewState extends State<VisitationRequestView> {
                             : 'Name: $_selectedBorrowerName',
                         suffixIcon: IconButton(
                           icon: const Icon(Icons.search),
-                          onPressed: _pickBorrower,
+                          onPressed: _isRequestMode ? null : _pickBorrower,
                         ),
                       ),
                       validator: (v) => _optionalNumeric(v, 'Borrower ID'),
