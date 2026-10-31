@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:lenderly_dialer/commons/services/api_client.dart';
 import 'chat_template_picker_view.dart';
 import 'follow_up_form_view.dart';
@@ -27,6 +28,7 @@ class LoanDetail {
   final int? borrowerCountryId;
   final String? borrowerEmail;
   final String? borrowerAddress;
+  final String? borrowerPhotoUrl;
   final String? countryCode;
   final String? houseNumber;
   final String? street;
@@ -61,6 +63,7 @@ class LoanDetail {
     this.borrowerCountryId,
     this.borrowerEmail,
     this.borrowerAddress,
+    this.borrowerPhotoUrl,
     this.countryCode,
     this.houseNumber,
     this.street,
@@ -99,6 +102,8 @@ class LoanDetail {
       borrowerCountryId: (j['borrower_country_id'] as num?)?.toInt(),
       borrowerEmail: (j['borrower_email'] ?? j['email'])?.toString(),
       borrowerAddress: (j['borrower_address'] ?? j['address'])?.toString(),
+      borrowerPhotoUrl: (j['borrower_photo_url'] ?? j['photo_url'])
+          ?.toString(),
       countryCode: (j['borrower_country_code'] ?? j['country_code'])
           ?.toString(),
       houseNumber: (j['borrower_house_number'] ?? j['house_number'])
@@ -232,6 +237,44 @@ class FollowUpRecord {
   );
 }
 
+class LoanDocumentItem {
+  final int id;
+  final String? fileTitle;
+  final String? fileName;
+  final String? category;
+  final bool isVerified;
+  final String? createdDate;
+  final String? fileUrl;
+
+  LoanDocumentItem({
+    required this.id,
+    this.fileTitle,
+    this.fileName,
+    this.category,
+    this.isVerified = false,
+    this.createdDate,
+    this.fileUrl,
+  });
+
+  factory LoanDocumentItem.fromJson(Map<String, dynamic> j) =>
+      LoanDocumentItem(
+        id: (j['id'] as num).toInt(),
+        fileTitle: j['file_title']?.toString(),
+        fileName: j['file_name']?.toString(),
+        category: j['category']?.toString(),
+        isVerified: j['is_verified'] == true || j['is_verified'] == 1,
+        createdDate: j['created_date']?.toString(),
+        fileUrl: j['file_url']?.toString(),
+      );
+
+  bool get isImage {
+    final name = fileName?.toLowerCase() ?? '';
+    return name.endsWith('.png') ||
+        name.endsWith('.jpg') ||
+        name.endsWith('.jpeg');
+  }
+}
+
 // ── View ──────────────────────────────────────────────────────────────────────
 
 class LoanDetailView extends StatefulWidget {
@@ -252,6 +295,7 @@ class _LoanDetailViewState extends State<LoanDetailView>
   List<LoanSchedule> _schedules = [];
   List<LoanTransaction> _transactions = [];
   List<FollowUpRecord> _followUps = [];
+  List<LoanDocumentItem> _documents = [];
   late TabController _tabController;
   bool _fabOpen = false;
 
@@ -260,7 +304,7 @@ class _LoanDetailViewState extends State<LoanDetailView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadDetail();
   }
 
@@ -284,8 +328,12 @@ class _LoanDetailViewState extends State<LoanDetailView>
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         final data = json['data'] as Map<String, dynamic>;
+        final loanJson = Map<String, dynamic>.from(
+          data['loan'] as Map<String, dynamic>,
+        );
+        loanJson['borrower_photo_url'] = data['borrower_photo_url'];
         setState(() {
-          _loan = LoanDetail.fromJson(data['loan'] as Map<String, dynamic>);
+          _loan = LoanDetail.fromJson(loanJson);
           _schedules = (data['schedules'] as List<dynamic>? ?? [])
               .map((e) => LoanSchedule.fromJson(e as Map<String, dynamic>))
               .toList();
@@ -294,6 +342,9 @@ class _LoanDetailViewState extends State<LoanDetailView>
               .toList();
           _followUps = (data['follow_ups'] as List<dynamic>? ?? [])
               .map((e) => FollowUpRecord.fromJson(e as Map<String, dynamic>))
+              .toList();
+          _documents = (data['documents'] as List<dynamic>? ?? [])
+              .map((e) => LoanDocumentItem.fromJson(e as Map<String, dynamic>))
               .toList();
           _isLoading = false;
         });
@@ -432,6 +483,28 @@ class _LoanDetailViewState extends State<LoanDetailView>
         ]),
         const SizedBox(height: 12),
         _sectionCard('Borrower', Icons.person, [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: CircleAvatar(
+                radius: 36,
+                backgroundColor: Colors.indigo.shade50,
+                backgroundImage:
+                    (l.borrowerPhotoUrl != null &&
+                        l.borrowerPhotoUrl!.isNotEmpty)
+                    ? NetworkImage(l.borrowerPhotoUrl!)
+                    : null,
+                child:
+                    (l.borrowerPhotoUrl == null || l.borrowerPhotoUrl!.isEmpty)
+                    ? Icon(
+                        Icons.person,
+                        size: 36,
+                        color: Colors.indigo.shade300,
+                      )
+                    : null,
+              ),
+            ),
+          ),
           _infoRow('Name', l.borrowerName),
           _infoRow('Email', l.borrowerEmail),
           _infoRow('Address', l.borrowerAddress),
@@ -677,6 +750,63 @@ class _LoanDetailViewState extends State<LoanDetailView>
     );
   }
 
+  Widget _buildDocumentsTab() {
+    if (_documents.isEmpty) {
+      return _emptyState('No documents found', Icons.folder_open);
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(12),
+      itemCount: _documents.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, i) {
+        final d = _documents[i];
+        return Card(
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Colors.indigo.shade50,
+              child: Icon(
+                d.isImage ? Icons.image : Icons.insert_drive_file,
+                color: Colors.indigo.shade600,
+                size: 18,
+              ),
+            ),
+            title: Text(
+              d.fileTitle ?? d.fileName ?? 'Document',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(
+              '${d.category ?? 'Uncategorized'}  •  ${_fDate(d.createdDate)}',
+            ),
+            trailing: d.isVerified
+                ? const Icon(Icons.verified, color: Colors.green, size: 20)
+                : null,
+            onTap: d.fileUrl != null && d.fileUrl!.isNotEmpty
+                ? () => _openDocument(d.fileUrl!)
+                : null,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openDocument(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to open document'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   Widget _sectionCard(String title, IconData icon, List<Widget> children) {
@@ -910,6 +1040,7 @@ class _LoanDetailViewState extends State<LoanDetailView>
                   Tab(text: 'Schedules'),
                   Tab(text: 'Transactions'),
                   Tab(text: 'Follow-ups'),
+                  Tab(text: 'Documents'),
                 ],
               ),
       ),
@@ -942,6 +1073,7 @@ class _LoanDetailViewState extends State<LoanDetailView>
                 _buildSchedulesTab(),
                 _buildTransactionsTab(),
                 _buildFollowUpsTab(),
+                _buildDocumentsTab(),
               ],
             ),
       floatingActionButton: _loan == null
