@@ -4,17 +4,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lenderly_dialer/commons/reusables/toast.dart';
 import '../blocs/break/break_bloc.dart';
 import '../blocs/break/break_event.dart';
-import '../blocs/break/break_state.dart';
 import '../blocs/tracking/tracking_bloc.dart';
 import '../blocs/tracking/tracking_state.dart';
-import '../commons/models/break_session_model.dart';
 import '../commons/reusables/logout_dialog.dart';
 import '../commons/models/auth_models.dart';
 import '../commons/services/app_config.dart';
 import '../commons/services/environment_config.dart';
 import '../commons/services/shared_prefs_storage_service.dart';
 import 'profile_view.dart';
-import 'break_management_view.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -66,186 +63,10 @@ class _SettingsViewState extends State<SettingsView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // _buildBreakControls(),
             const SizedBox(height: 24),
             _buildAppInfoCard(),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildBreakControls() {
-    return BlocBuilder<BreakBloc, BreakState>(
-      builder: (context, state) {
-        return Card(
-          elevation: 4,
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.timer, color: Colors.purple, size: 28),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Break Controls',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (state is BreakActive) ...[
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      border: Border.all(color: Colors.orange.shade200),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.pause_circle_filled,
-                          color: Colors.orange,
-                          size: 48,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Currently on ${state.activeBreak.type.name}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange.shade700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        StreamBuilder(
-                          stream: Stream.periodic(const Duration(seconds: 1)),
-                          builder: (context, snapshot) {
-                            final duration = DateTime.now().difference(
-                              state.activeBreak.startTime,
-                            );
-                            return Text(
-                              _formatDuration(duration),
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.orange.shade600,
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _endBreak,
-                            icon: const Icon(Icons.play_arrow),
-                            label: const Text('End Break'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (state is BreakLoading) ...[
-                  const Center(child: CircularProgressIndicator()),
-                ] else ...[
-                  const Text(
-                    'Take a break from dialing:',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 2.5,
-                    children: [
-                      _buildBreakButton(
-                        BreakType.shortBreak,
-                        Icons.coffee,
-                        Colors.blue,
-                      ),
-                      _buildBreakButton(
-                        BreakType.lunch,
-                        Icons.restaurant,
-                        Colors.green,
-                      ),
-                      _buildBreakButton(
-                        BreakType.meeting,
-                        Icons.meeting_room,
-                        Colors.orange,
-                      ),
-                      _buildBreakButton(
-                        BreakType.customerSupportBreak,
-                        Icons.support_agent,
-                        Colors.red,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _navigateToBreakManagement,
-                      icon: const Icon(Icons.manage_history),
-                      label: const Text(
-                        'Manage Breaks & History',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.purple,
-                        side: const BorderSide(color: Colors.purple),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildBreakButton(BreakType type, IconData icon, Color color) {
-    return ElevatedButton(
-      onPressed: () => _startBreak(type),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 24),
-          const SizedBox(height: 4),
-          Text(
-            type.name,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            textAlign: TextAlign.center,
-          ),
-          if (type.duration.inHours < 24)
-            Text(
-              _formatDuration(type.duration),
-              style: const TextStyle(fontSize: 10, color: Colors.white70),
-            ),
-        ],
       ),
     );
   }
@@ -618,23 +439,6 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  void _startBreak(BreakType type) {
-    context.read<BreakBloc>().add(StartBreak(type));
-    toast(context, 'Started ${type.name}', ShowToast.warning);
-  }
-
-  void _endBreak() {
-    context.read<BreakBloc>().add(const EndBreak());
-    toast(context, 'Break ended', ShowToast.error);
-  }
-
-  void _navigateToBreakManagement() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const BreakManagementView()),
-    );
-  }
-
   void _showAboutDialog() {
     showAboutDialog(
       context: context,
@@ -651,20 +455,6 @@ class _SettingsViewState extends State<SettingsView> {
         Text('• Status tracking and notes'),
       ],
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes % 60;
-    final seconds = duration.inSeconds % 60;
-
-    if (hours > 0) {
-      return '${hours}h ${minutes}m ${seconds}s';
-    } else if (minutes > 0) {
-      return '${minutes}m ${seconds}s';
-    } else {
-      return '${seconds}s';
-    }
   }
 
   String _formatInterval(int seconds) {

@@ -484,30 +484,59 @@ class _LoanDetailViewState extends State<LoanDetailView>
         const SizedBox(height: 12),
         _sectionCard('Borrower', Icons.person, [
           Center(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: CircleAvatar(
-                radius: 36,
-                backgroundColor: Colors.indigo.shade50,
-                backgroundImage:
-                    (l.borrowerPhotoUrl != null &&
-                        l.borrowerPhotoUrl!.isNotEmpty)
-                    ? NetworkImage(l.borrowerPhotoUrl!)
-                    : null,
-                child:
-                    (l.borrowerPhotoUrl == null || l.borrowerPhotoUrl!.isEmpty)
-                    ? Icon(
-                        Icons.person,
-                        size: 36,
-                        color: Colors.indigo.shade300,
-                      )
-                    : null,
-              ),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: (l.borrowerPhotoUrl != null &&
+                          l.borrowerPhotoUrl!.isNotEmpty)
+                      ? () => _showFullPhoto(l.borrowerPhotoUrl!)
+                      : null,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.indigo.shade100,
+                        width: 3,
+                      ),
+                    ),
+                    child: CircleAvatar(
+                      radius: 56,
+                      backgroundColor: Colors.indigo.shade50,
+                      backgroundImage:
+                          (l.borrowerPhotoUrl != null &&
+                              l.borrowerPhotoUrl!.isNotEmpty)
+                          ? NetworkImage(l.borrowerPhotoUrl!)
+                          : null,
+                      child:
+                          (l.borrowerPhotoUrl == null ||
+                              l.borrowerPhotoUrl!.isEmpty)
+                          ? Icon(
+                              Icons.person,
+                              size: 52,
+                              color: Colors.indigo.shade300,
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  l.borrowerName ?? '—',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
-          _infoRow('Name', l.borrowerName),
-          _infoRow('Email', l.borrowerEmail),
-          _infoRow('Address', l.borrowerAddress),
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 6),
+          _iconInfoRow(Icons.email_outlined, l.borrowerEmail),
+          _iconInfoRow(Icons.location_on_outlined, l.borrowerAddress),
           if (l.borrowerMobile != null && l.borrowerMobile!.isNotEmpty)
             _callRow('Mobile', l.borrowerMobile!, l.borrowerName ?? 'Borrower'),
           if (l.borrowerPhone != null && l.borrowerPhone!.isNotEmpty)
@@ -864,6 +893,46 @@ class _LoanDetailViewState extends State<LoanDetailView>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _iconInfoRow(IconData icon, String? value) {
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: Colors.indigo.shade300),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFullPhoto(String url) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: InteractiveViewer(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(url, fit: BoxFit.contain),
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -34,12 +34,9 @@ class DatabaseSeeder {
 
       // Generate test data for the last N days
       final now = DateTime.now();
-      int totalCalls = 0;
-      int totalSessions = 0;
 
       for (int dayOffset = 0; dayOffset < daysOfHistory; dayOffset++) {
         final date = now.subtract(Duration(days: dayOffset));
-        final isToday = dayOffset == 0;
 
         // Create 2-3 dialing sessions per day
         final sessionsPerDay = _random.nextInt(3) + 1; // 1-3 sessions
@@ -60,8 +57,6 @@ class DatabaseSeeder {
             agentName: agentName,
             bucket: _getRandomBucket(),
           );
-
-          totalSessions++;
 
           // Generate calls for this session
           final callsInSession = contacts.length;
@@ -111,8 +106,6 @@ class DatabaseSeeder {
                 failedCalls++;
                 break;
             }
-
-            totalCalls++;
           }
 
           // End session with statistics
@@ -136,8 +129,6 @@ class DatabaseSeeder {
         }
       }
 
-      // Display today's stats
-      final todaysStats = await _callLogService.getTodaysStats(userId);
     } catch (e) {
       rethrow;
     }
@@ -174,9 +165,7 @@ class DatabaseSeeder {
     final breakCount = _random.nextInt(3) + 1; // 1-3 breaks per day
 
     for (int i = 0; i < breakCount; i++) {
-      final duration = _getBreakDuration(
-        breakTypes[_random.nextInt(breakTypes.length)],
-      );
+      _getBreakDuration(breakTypes[_random.nextInt(breakTypes.length)]);
 
       // Create break session in database
       // Note: You may need to implement this method in your database integration
@@ -334,25 +323,6 @@ class DatabaseSeeder {
       default:
         return const Duration(minutes: 15);
     }
-  }
-
-  /// Format date for display
-  static String _formatDate(DateTime date) {
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}';
   }
 
   /// Quick seed for development (less data)
